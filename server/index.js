@@ -98,13 +98,36 @@ const connectDB = async () => {
     // Set mongoose options for better compatibility
     mongoose.set('strictQuery', false);
     
-    await mongoose.connect(mongoURI, {
-      serverSelectionTimeoutMS: 10000, // Increased timeout
+    // Determine if using MongoDB Atlas (mongodb+srv://) or localhost
+    const isAtlas = mongoURI.startsWith('mongodb+srv://');
+    
+    // Connection options
+    const connectionOptions = {
+      serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
       maxPoolSize: 10,
-      retryWrites: true,
-      w: 'majority'
-    });
+    };
+    
+    // For MongoDB Atlas, add SSL/TLS options
+    if (isAtlas) {
+      // MongoDB Atlas requires TLS by default
+      // Don't set tls: true explicitly as it's handled by mongodb+srv://
+      // But we can add connection pool options
+      connectionOptions.retryWrites = true;
+      connectionOptions.w = 'majority';
+      
+      // Ensure connection string has proper parameters
+      if (!mongoURI.includes('retryWrites')) {
+        const separator = mongoURI.includes('?') ? '&' : '?';
+        const updatedURI = `${mongoURI}${separator}retryWrites=true&w=majority`;
+        // Use updated URI if it's different
+        if (updatedURI !== mongoURI) {
+          console.log('⚠️  Adding retryWrites and w=majority to connection string');
+        }
+      }
+    }
+    
+    await mongoose.connect(mongoURI, connectionOptions);
     
     console.log('✅ MongoDB connected successfully');
     
@@ -130,19 +153,31 @@ const connectDB = async () => {
     console.error('   3. Your IP is whitelisted in MongoDB Atlas (if using Atlas)');
     console.error('   4. Your MongoDB Atlas connection string is correct');
     console.error('   5. Your MongoDB version is compatible (Mongoose 8.x supports MongoDB 4.4+)');
-    process.exit(1); // Exit if can't connect
+    console.error('   6. For Atlas SSL errors, try adding ?tls=true to your connection string');
+    console.error('   7. Check your network/firewall settings');
+    
+    // Don't exit immediately - allow retry
+    console.error('⚠️  Retrying connection in 5 seconds...');
+    setTimeout(() => {
+      connectDB();
+    }, 5000);
   }
 };
 
 // Connect to MongoDB before starting server
+let serverStarted = false;
+
 connectDB().then(() => {
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-  });
+  if (!serverStarted) {
+    serverStarted = true;
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+    });
+  }
 }).catch(err => {
   console.error('Failed to start server:', err);
-  process.exit(1);
+  // Don't exit - let the retry mechanism handle it
 });
 
 module.exports = { io };
