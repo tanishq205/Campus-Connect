@@ -11,7 +11,6 @@ const SignupFlow = () => {
     password: '',
     confirmPassword: '',
     branch: '',
-    profileImage: null,
     github: '',
     linkedin: '',
     portfolio: '',
@@ -262,20 +261,7 @@ const StepThree = ({ formData, updateField, handleImageUpload, nextStep, prevSte
   return (
     <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} className="step-content">
       <h2>Profile & Links</h2>
-      <p className="subtitle">Add your profile photo and social links (optional)</p>
-      <div className="image-upload">
-        <label htmlFor="profile-image" className="upload-label">
-          {formData.profileImage ? '✓ Image Selected' : '📷 Upload Profile Image'}
-        </label>
-        <input
-          id="profile-image"
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          style={{ display: 'none' }}
-          tabIndex={-1}
-        />
-      </div>
+      <p className="subtitle">Add your social links (optional)</p>
       <input
         type="url"
         placeholder="🔗 GitHub URL (optional)"

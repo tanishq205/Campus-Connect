@@ -36,7 +36,16 @@ exports.register = async (req, res) => {
       [userExists] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password with explicit salt rounds
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // DEBUG: Log the password details
+    console.log('=== REGISTRATION DEBUG ===');
+    console.log('Plain password:', password);
+    console.log('Hashed password:', hashedPassword);
+    console.log('Hash length:', hashedPassword.length);
+    console.log('========================');
 
     const [result] = await db.query(
       `INSERT INTO users (username, name, college_name, college_email, password, branch, profile_image, github, linkedin, portfolio, bio) 
@@ -55,16 +64,23 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user
+// Login user - WITH DETAILED DEBUGGING
 exports.login = async (req, res) => {
   try {
-    console.log('Login request body:', req.body);
+    console.log('=== LOGIN DEBUG START ===');
+    console.log('Request body:', req.body);
     
     const { usernameOrEmail, password } = req.body;
 
     if (!usernameOrEmail || !password) {
+      console.log('Missing credentials');
       return res.status(400).json({ error: 'Username/Email and password are required' });
     }
+
+    console.log('Login attempt for:', usernameOrEmail);
+    console.log('Password provided:', password);
+    console.log('Password type:', typeof password);
+    console.log('Password length:', password.length);
 
     const isEmail = usernameOrEmail.includes('@');
     
@@ -77,14 +93,37 @@ exports.login = async (req, res) => {
       params = [usernameOrEmail];
     }
 
+    console.log('Query:', query);
+    console.log('Params:', params);
+
     const [users] = await db.query(query, params);
     
     if (users.length === 0) {
+      console.log('User not found');
       return res.status(401).json({ error: 'Invalid username/email or password' });
     }
 
     const user = users[0];
+    console.log('User found:', user.username);
+    console.log('Stored hash:', user.password);
+    console.log('Hash length:', user.password ? user.password.length : 'NULL');
+    console.log('Hash starts with:', user.password ? user.password.substring(0, 7) : 'NULL');
+
+    // CRITICAL: Check if password hash exists and is valid
+    if (!user.password || user.password.length < 50) {
+      console.log('ERROR: Invalid password hash in database');
+      return res.status(500).json({ error: 'Account error. Please contact support.' });
+    }
+
+    // Test bcrypt compare
+    console.log('Comparing passwords...');
+    console.log('Plain password:', password);
+    console.log('Hashed password:', user.password);
+    
     const isMatch = await bcrypt.compare(password, user.password);
+    
+    console.log('Password match result:', isMatch);
+    console.log('=== LOGIN DEBUG END ===');
     
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid username/email or password' });
