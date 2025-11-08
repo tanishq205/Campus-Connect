@@ -194,6 +194,25 @@ const io = socketIo(server, {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check endpoint (for Render and monitoring)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Campus Connect API Server',
+    status: 'running',
+    version: '1.0.0'
+  });
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
@@ -202,6 +221,20 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/comments', require('./routes/comments'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/stream-chat', require('./routes/streamChat'));
+
+// Error handling middleware (should be after all routes)
+app.use((err, req, res, next) => {
+  console.error('❌ Unhandled error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
 // Socket.io for real-time chat
 io.on('connection', (socket) => {
@@ -424,13 +457,52 @@ const connectDB = async () => {
   }
 };
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Don't exit in production - let the process manager restart it
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit in production
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
+
 // Start server immediately (socket.io doesn't need MongoDB)
 // MongoDB will connect in the background
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+
+// Validate required environment variables (non-critical ones)
+const requiredEnvVars = ['MONGODB_URI'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.warn('⚠️  WARNING: Missing environment variables:', missingEnvVars.join(', '));
+  console.warn('⚠️  Server will start but some features may not work.');
+}
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`✅ Socket.io is ready for connections`);
   console.log(`⚠️  MongoDB connection in progress...`);
+  console.log(`🌐 Health check available at: http://localhost:${PORT}/health`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use`);
+    process.exit(1);
+  } else {
+    console.error('❌ Server error:', error);
+  }
 });
 
 // Connect to MongoDB in the background (non-blocking)
