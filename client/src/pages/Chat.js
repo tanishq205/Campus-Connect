@@ -10,7 +10,10 @@ import {
   addDoc,
   onSnapshot,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  enableNetwork,
+  disableNetwork,
+  waitForPendingWrites
 } from 'firebase/firestore';
 import api from '../config/api';
 import { FiSend, FiUser, FiWifi, FiWifiOff } from 'react-icons/fi';
@@ -278,16 +281,45 @@ const Chat = () => {
       console.log('   Message text:', messageText);
       console.log('   This may take a moment...');
       
-      // Add timeout wrapper to detect hanging
+      // Ensure network is enabled
+      try {
+        await enableNetwork(db);
+        console.log('   Network enabled');
+      } catch (networkError) {
+        console.warn('   Network enable warning:', networkError);
+      }
+      
+      // Add message (this writes locally immediately, then syncs)
+      console.log('   Calling addDoc...');
       const addDocPromise = addDoc(messagesRef, messageData);
+      
+      // Add timeout wrapper to detect hanging
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('addDoc timed out after 10 seconds')), 10000)
+        setTimeout(() => reject(new Error('addDoc timed out after 10 seconds - likely a security rules or network issue')), 10000)
       );
       
       console.log('   Waiting for addDoc to complete...');
-      const docRef = await Promise.race([addDocPromise, timeoutPromise]);
+      let docRef;
+      try {
+        docRef = await Promise.race([addDocPromise, timeoutPromise]);
+        console.log('✅ addDoc promise resolved!');
+      } catch (raceError) {
+        // If timeout, try to wait for pending writes to see if it's just slow
+        if (raceError.message.includes('timed out')) {
+          console.warn('⚠️  addDoc timed out, but checking if write is pending...');
+          try {
+            await waitForPendingWrites(db);
+            console.log('✅ Pending writes completed - message was written!');
+            // If we get here, the write succeeded but addDoc promise didn't resolve
+            // This is unusual but can happen with network issues
+            throw new Error('Write completed but addDoc promise did not resolve. This usually indicates a security rules issue or network problem.');
+          } catch (waitError) {
+            throw raceError; // Re-throw original timeout error
+          }
+        }
+        throw raceError;
+      }
       
-      console.log('✅ addDoc promise resolved!');
       console.log('✅ Message added to Firestore (local write)');
       console.log('   Document ID:', docRef.id);
       console.log('   Document path:', docRef.path);
@@ -311,10 +343,24 @@ const Chat = () => {
       if (error.message?.includes('timed out')) {
         console.error('⚠️  addDoc is hanging - the promise is not resolving');
         console.error('   This usually means:');
-        console.error('   1. Firestore security rules are blocking the write');
+        console.error('   1. ❌ Firestore security rules are blocking the write (MOST LIKELY)');
         console.error('   2. Network connection issue');
         console.error('   3. Firestore is not properly initialized');
+        console.error('');
+        console.error('🔧 TO FIX:');
+        console.error('   1. Go to Firebase Console → Firestore Database → Rules');
+        console.error('   2. Make sure you have these rules:');
+        console.error('      match /chats/{roomId}/messages/{messageId} {');
+        console.error('        allow read: if request.auth != null;');
+        console.error('        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;');
+        console.error('      }');
+        console.error('   3. Click "Publish"');
+        console.error('   4. Verify userId in message matches currentUser.uid');
+        console.error('      Current UID:', currentUser?.uid);
+        console.error('      Message userId:', messageData?.userId);
+        console.error('');
         console.error('   Check Network tab for failed requests to firestore.googleapis.com');
+        toast.error('Message write timed out. Check Firestore security rules!');
       }
       
       console.error('❌ === END ERROR ===\n');
