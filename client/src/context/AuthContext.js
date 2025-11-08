@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { onAuthStateChanged, signOut as firebaseSignOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import api from '../config/api';
@@ -54,25 +54,6 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  // Periodically check email verification status
-  useEffect(() => {
-    if (!currentUser || currentUser.emailVerified) return;
-
-    const checkInterval = setInterval(async () => {
-      try {
-        await currentUser.reload();
-        if (currentUser.emailVerified) {
-          // User verified their email, refresh data
-          await refreshUserData();
-        }
-      } catch (error) {
-        console.error('Error checking verification status:', error);
-      }
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(checkInterval);
-  }, [currentUser, refreshUserData]);
-
   const sendVerificationEmail = async () => {
     if (!currentUser) return;
     try {
@@ -94,16 +75,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const refreshUserData = async () => {
+  const refreshUserData = useCallback(async () => {
     if (currentUser) {
       try {
         const response = await api.get(`/users/uid/${currentUser.uid}`);
-        setUserData(response.data);
+        setUserData({ ...response.data, emailVerified: currentUser.emailVerified });
       } catch (error) {
         console.error('Error refreshing user data:', error);
       }
     }
-  };
+  }, [currentUser]);
+
+  // Periodically check email verification status
+  useEffect(() => {
+    if (!currentUser || currentUser.emailVerified) return;
+
+    const checkInterval = setInterval(async () => {
+      try {
+        await currentUser.reload();
+        if (currentUser.emailVerified) {
+          // User verified their email, refresh data
+          await refreshUserData();
+        }
+      } catch (error) {
+        console.error('Error checking verification status:', error);
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [currentUser, refreshUserData]);
 
   const value = {
     currentUser,

@@ -2,6 +2,7 @@
   min-height: 100vh;
   position: relative;
   z-index: 1;
+  background: transparent;
 }
 
 .app-body {
@@ -11,6 +12,7 @@
   padding-top: 80px;
   position: relative;
   z-index: 1;
+  background: transparent;
 }
 
 .app-content {
@@ -20,6 +22,7 @@
   min-height: calc(100vh - 80px);
   position: relative;
   z-index: 1;
+  background: transparent;
 }
 
 @media (max-width: 1024px) {
