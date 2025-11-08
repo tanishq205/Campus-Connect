@@ -49,29 +49,59 @@ const Chat = () => {
 
   // Socket connection
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !userData) return;
 
-    const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000');
-    setSocket(newSocket);
+    const socketURL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
+    console.log('Connecting to socket:', socketURL);
+    
+    const newSocket = io(socketURL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
+    });
 
-    newSocket.emit('join-room', roomId);
+    newSocket.on('connect', () => {
+      console.log('Socket connected:', newSocket.id);
+      newSocket.emit('join-room', roomId);
+      // Load previous messages after joining room
+      loadMessages(roomId);
+    });
+
+    newSocket.on('disconnect', () => {
+      console.log('Socket disconnected');
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      toast.error('Failed to connect to chat server');
+    });
 
     newSocket.on('receive-message', (data) => {
+      console.log('Received message:', data);
       if (data.roomId === roomId) {
-        setMessages((prev) => [...prev, data]);
+        setMessages((prev) => {
+          // Check if message already exists to prevent duplicates
+          const exists = prev.some(msg => 
+            msg.timestamp === data.timestamp && 
+            msg.user?._id === data.user?._id &&
+            msg.message === data.message
+          );
+          if (exists) return prev;
+          return [...prev, data];
+        });
       }
     });
 
-    // Load previous messages
-    loadMessages(roomId);
+    setSocket(newSocket);
 
     return () => {
-      if (roomId) {
+      if (newSocket.connected) {
         newSocket.emit('leave-room', roomId);
       }
       newSocket.close();
     };
-  }, [roomId]);
+  }, [roomId, userData]);
 
   const fetchFriends = async () => {
     try {
@@ -97,9 +127,19 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !socket || !userData) return;
+    if (!newMessage.trim() || !socket || !userData || !roomId) {
+      if (!socket) {
+        toast.error('Not connected to chat server');
+      }
+      return;
+    }
+
+    if (!socket.connected) {
+      toast.error('Not connected to chat server. Please wait...');
+      return;
+    }
 
     const messageData = {
       roomId,
@@ -108,21 +148,42 @@ const Chat = () => {
         name: userData.name,
         profilePicture: userData.profilePicture,
       },
-      message: newMessage,
-      timestamp: new Date(),
+      message: newMessage.trim(),
+      timestamp: new Date().toISOString(),
     };
 
-    socket.emit('send-message', messageData);
-    setMessages((prev) => [...prev, messageData]);
-    setNewMessage('');
+    try {
+      // Emit message via socket
+      socket.emit('send-message', messageData);
+      
+      // Also save to backend
+      try {
+        await api.post('/chat/messages', {
+          roomId,
+          message: messageData
+        });
+      } catch (error) {
+        console.error('Error saving message to backend:', error);
+        // Don't show error to user, message still sent via socket
+      }
+      
+      // Add to local state immediately for instant feedback
+      setMessages((prev) => [...prev, messageData]);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
+    }
   };
 
   const handleSelectFriend = (friend) => {
     setSelectedFriend(friend);
     if (userData?._id && friend._id) {
       const friendIds = [userData._id, friend._id].sort();
-      setRoomId(`friend-${friendIds[0]}-${friendIds[1]}`);
+      const newRoomId = `friend-${friendIds[0]}-${friendIds[1]}`;
+      setRoomId(newRoomId);
       setMessages([]);
+      // Messages will be loaded when socket connects to new room
     }
   };
 

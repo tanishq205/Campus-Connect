@@ -10,7 +10,8 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -42,41 +43,33 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send-message', async (data) => {
-    // Emit to the specific room
-    io.to(data.roomId).emit('receive-message', data);
-    console.log(`Message sent to room: ${data.roomId}`);
-    
-    // Optionally save message to database/storage
-    // For now, we'll store in memory via the chat route
     try {
-      const postData = JSON.stringify({
-        roomId: data.roomId,
-        message: data
+      // Emit to the specific room
+      io.to(data.roomId).emit('receive-message', data);
+      console.log(`Message sent to room: ${data.roomId} by ${data.user?.name}`);
+      
+      // Save message to backend storage directly
+      const chatRoute = require('./routes/chat');
+      const { messagesStore } = chatRoute;
+      
+      if (!messagesStore.has(data.roomId)) {
+        messagesStore.set(data.roomId, []);
+      }
+      
+      const messages = messagesStore.get(data.roomId);
+      messages.push({
+        ...data,
+        timestamp: data.timestamp || new Date().toISOString(),
       });
       
-      const options = {
-        hostname: 'localhost',
-        port: process.env.PORT || 5000,
-        path: '/api/chat/messages',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        }
-      };
+      // Keep only last 100 messages per room
+      if (messages.length > 100) {
+        messages.shift();
+      }
       
-      const req = http.request(options, (res) => {
-        // Handle response if needed
-      });
-      
-      req.on('error', (error) => {
-        console.error('Error saving message:', error);
-      });
-      
-      req.write(postData);
-      req.end();
+      messagesStore.set(data.roomId, messages);
     } catch (error) {
-      console.error('Error saving message:', error);
+      console.error('Error in send-message handler:', error);
     }
   });
 

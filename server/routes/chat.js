@@ -28,7 +28,7 @@ router.post('/messages', async (req, res) => {
     const messages = messagesStore.get(roomId);
     messages.push({
       ...message,
-      timestamp: new Date(),
+      timestamp: message.timestamp || new Date().toISOString(),
     });
     
     // Keep only last 100 messages per room
@@ -43,5 +43,7 @@ router.post('/messages', async (req, res) => {
   }
 });
 
+// Export both router and messagesStore
 module.exports = router;
+module.exports.messagesStore = messagesStore;
 
