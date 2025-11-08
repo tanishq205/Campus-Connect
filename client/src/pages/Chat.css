@@ -24,6 +24,36 @@
   overflow-y: auto;
 }
 
+.chat-tabs {
+  display: flex;
+  border-bottom: 1px solid #efefef;
+  padding: 0;
+}
+
+.chat-tab {
+  flex: 1;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #8e8e8e;
+  transition: all 0.2s;
+}
+
+.chat-tab:hover {
+  color: #262626;
+  background-color: #fafafa;
+}
+
+.chat-tab.active {
+  color: #262626;
+  border-bottom-color: #262626;
+  font-weight: 600;
+}
+
 .chat-friends-list h3 {
   padding: 20px;
   font-size: 18px;
@@ -73,6 +103,10 @@
   color: white;
   font-weight: 600;
   font-size: 16px;
+}
+
+.friend-avatar.project-avatar {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
 }
 
 .friend-info h4 {
@@ -192,6 +226,10 @@
   color: white;
   font-weight: 600;
   font-size: 16px;
+}
+
+.project-avatar {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
 }
 
 .chat-header-user h3 {

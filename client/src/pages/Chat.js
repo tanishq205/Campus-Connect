@@ -14,7 +14,10 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [friends, setFriends] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [selectedFriend, setSelectedFriend] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'projects'
   const [channel, setChannel] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const messagesEndRef = useRef(null);
@@ -75,6 +78,7 @@ const Chat = () => {
   useEffect(() => {
     if (userData?._id) {
       fetchFriends();
+      fetchProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
@@ -93,9 +97,14 @@ const Chat = () => {
     let channelType = 'messaging';
     let targetFriendId = null;
 
-    if (projectId) {
+    if (projectId && userData?._id) {
       channelId = `project-${projectId}`;
       channelType = 'team';
+    } else if (selectedProject?._id && userData?._id) {
+      // Project selected from projects list
+      channelId = `project-${selectedProject._id}`;
+      channelType = 'team';
+      console.log('📋 Project selected from list, setting up channel:', channelId);
     } else if (friendId && userData?._id) {
       // Friend selected via URL (e.g., /chat/friend/:friendId)
       targetFriendId = friendId;
@@ -131,16 +140,44 @@ const Chat = () => {
         console.log('📡 Setting up Stream Chat channel:', channelId);
         
         // Get or create channel
-        const members = projectId 
-          ? [userData._id.toString()] // For project chats, add members as needed
-          : targetFriendId 
-            ? [userData._id.toString(), targetFriendId] // For friend chats, add both users
-            : [userData._id.toString()]; // Fallback
+        let members = [userData._id.toString()]; // Always include current user
         
-        console.log('👥 Channel members:', members);
+        if (projectId || selectedProject?._id) {
+          // For project chats, include creator and all members
+          const project = selectedProject || { _id: projectId };
+          const projectMembers = new Set([userData._id.toString()]);
+          
+          // Add creator
+          if (project.creator?._id) {
+            projectMembers.add(project.creator._id.toString());
+          } else if (project.creator) {
+            projectMembers.add(project.creator.toString());
+          }
+          
+          // Add all members
+          if (project.members && Array.isArray(project.members)) {
+            project.members.forEach(member => {
+              const memberId = member.user?._id || member.user;
+              if (memberId) {
+                projectMembers.add(memberId.toString());
+              }
+            });
+          }
+          
+          members = Array.from(projectMembers);
+          console.log('👥 Project channel members:', members);
+        } else if (targetFriendId) {
+          // For friend chats, add both users
+          members = [userData._id.toString(), targetFriendId];
+          console.log('👥 Friend channel members:', members);
+        }
+        
+        const channelName = projectId || selectedProject?._id
+          ? (selectedProject?.title || `Project ${projectId || selectedProject?._id}`)
+          : 'Direct Message';
         
         const newChannel = streamClient.channel(channelType, channelId, {
-          name: projectId ? `Project ${projectId}` : 'Direct Message',
+          name: channelName,
           members: members,
         });
 
@@ -181,7 +218,7 @@ const Chat = () => {
       setChannel(null);
       setMessages([]);
     };
-  }, [projectId, friendId, selectedFriend, userData, connectionStatus]);
+  }, [projectId, friendId, selectedFriend, selectedProject, userData, connectionStatus]);
 
   // Load messages from channel
   const loadMessages = async (channelInstance) => {
@@ -222,6 +259,27 @@ const Chat = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      // Fetch all projects and filter for ones where user is creator or member
+      const response = await api.get('/projects');
+      const userProjects = response.data.filter(project => {
+        const isCreator = project.creator?._id === userData._id || 
+                         project.creator?.toString() === userData._id.toString();
+        const isMember = project.members?.some(member => 
+          (member.user?._id === userData._id || 
+           member.user?.toString() === userData._id.toString()) ||
+          (typeof member.user === 'string' && member.user === userData._id.toString())
+        );
+        return isCreator || isMember;
+      });
+      setProjects(userProjects);
+      console.log('📋 Fetched projects for chat:', userProjects.length);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
@@ -255,6 +313,7 @@ const Chat = () => {
 
   const handleBackToChats = () => {
     setSelectedFriend(null);
+    setSelectedProject(null);
     setChannel(null);
     setMessages([]);
     // Clean up channel reference
@@ -264,42 +323,96 @@ const Chat = () => {
     }
   };
 
+  const handleSelectProject = (project) => {
+    setSelectedProject(project);
+    setSelectedFriend(null); // Clear friend selection
+    // Channel will be set up automatically via useEffect
+  };
+
   if (!channel && !projectId) {
     return (
       <div className="chat-container">
         <div className="chat-layout">
           <div className="chat-friends-list">
-            <h3>Friends</h3>
-            {friends.length === 0 ? (
-              <div className="no-friends">
-                <p>No friends yet. Add friends to start chatting!</p>
-              </div>
-            ) : (
-              <div className="friends-list">
-                {friends.map((friend) => (
-                  <div
-                    key={friend._id}
-                    className={`friend-item ${selectedFriend?._id === friend._id ? 'active' : ''}`}
-                    onClick={() => handleSelectFriend(friend)}
-                  >
-                    {friend.profilePicture ? (
-                      <img src={friend.profilePicture} alt={friend.name} />
-                    ) : (
-                      <div className="friend-avatar">
-                        {friend.name?.charAt(0) || 'U'}
-                      </div>
-                    )}
-                    <div className="friend-info">
-                      <h4>{friend.name}</h4>
-                      <p>{friend.college}</p>
-                    </div>
+            <div className="chat-tabs">
+              <button
+                className={`chat-tab ${activeTab === 'friends' ? 'active' : ''}`}
+                onClick={() => setActiveTab('friends')}
+              >
+                Friends
+              </button>
+              <button
+                className={`chat-tab ${activeTab === 'projects' ? 'active' : ''}`}
+                onClick={() => setActiveTab('projects')}
+              >
+                Projects
+              </button>
+            </div>
+            {activeTab === 'friends' ? (
+              <>
+                <h3>Friends</h3>
+                {friends.length === 0 ? (
+                  <div className="no-friends">
+                    <p>No friends yet. Add friends to start chatting!</p>
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div className="friends-list">
+                    {friends.map((friend) => (
+                      <div
+                        key={friend._id}
+                        className={`friend-item ${selectedFriend?._id === friend._id ? 'active' : ''}`}
+                        onClick={() => handleSelectFriend(friend)}
+                      >
+                        {friend.profilePicture ? (
+                          <img src={friend.profilePicture} alt={friend.name} />
+                        ) : (
+                          <div className="friend-avatar">
+                            {friend.name?.charAt(0) || 'U'}
+                          </div>
+                        )}
+                        <div className="friend-info">
+                          <h4>{friend.name}</h4>
+                          <p>{friend.college}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h3>Projects</h3>
+                {projects.length === 0 ? (
+                  <div className="no-friends">
+                    <p>No projects yet. Join or create a project to start group chatting!</p>
+                  </div>
+                ) : (
+                  <div className="friends-list">
+                    {projects.map((project) => {
+                      const memberCount = (project.members?.length || 0) + 1; // +1 for creator
+                      return (
+                        <div
+                          key={project._id}
+                          className={`friend-item ${selectedProject?._id === project._id ? 'active' : ''}`}
+                          onClick={() => handleSelectProject(project)}
+                        >
+                          <div className="friend-avatar project-avatar">
+                            {project.title?.charAt(0) || 'P'}
+                          </div>
+                          <div className="friend-info">
+                            <h4>{project.title}</h4>
+                            <p>{memberCount} {memberCount === 1 ? 'member' : 'members'}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className="chat-main">
-            {selectedFriend ? (
+            {(selectedFriend || selectedProject) ? (
               <>
                 <div className="chat-header">
                   <button 
@@ -309,19 +422,31 @@ const Chat = () => {
                   >
                     <FiArrowLeft />
                   </button>
-                  <div className="chat-header-user">
-                    {selectedFriend.profilePicture ? (
-                      <img src={selectedFriend.profilePicture} alt={selectedFriend.name} />
-                    ) : (
-                      <div className="header-avatar">
-                        {selectedFriend.name?.charAt(0) || 'U'}
+                  {selectedFriend ? (
+                    <div className="chat-header-user">
+                      {selectedFriend.profilePicture ? (
+                        <img src={selectedFriend.profilePicture} alt={selectedFriend.name} />
+                      ) : (
+                        <div className="header-avatar">
+                          {selectedFriend.name?.charAt(0) || 'U'}
+                        </div>
+                      )}
+                      <div>
+                        <h2>{selectedFriend.name}</h2>
+                        <p>{selectedFriend.college}</p>
                       </div>
-                    )}
-                    <div>
-                      <h2>{selectedFriend.name}</h2>
-                      <p>{selectedFriend.college}</p>
                     </div>
-                  </div>
+                  ) : selectedProject ? (
+                    <div className="chat-header-user">
+                      <div className="header-avatar project-avatar">
+                        {selectedProject.title?.charAt(0) || 'P'}
+                      </div>
+                      <div>
+                        <h2>{selectedProject.title}</h2>
+                        <p>{(selectedProject.members?.length || 0) + 1} members</p>
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="connection-status">
                     {connectionStatus === 'connected' && (
                       <span className="status-connected" title="Connected">
@@ -412,8 +537,8 @@ const Chat = () => {
             ) : (
               <div className="chat-placeholder">
                 <FiUser size={64} />
-                <h3>Select a friend to start chatting</h3>
-                <p>Choose a friend from the list to begin your conversation</p>
+                <h3>Select a friend or project to start chatting</h3>
+                <p>Choose from the list to begin your conversation</p>
               </div>
             )}
           </div>
@@ -425,7 +550,7 @@ const Chat = () => {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        {selectedFriend && (
+        {(selectedFriend || selectedProject) && (
           <button 
             className="back-button" 
             onClick={handleBackToChats}
@@ -448,6 +573,17 @@ const Chat = () => {
             <div>
               <h3>{selectedFriend.name}</h3>
               <p>{selectedFriend.college}</p>
+            </div>
+          </div>
+        )}
+        {selectedProject && (
+          <div className="chat-header-user">
+            <div className="header-avatar project-avatar">
+              {selectedProject.title?.charAt(0) || 'P'}
+            </div>
+            <div>
+              <h3>{selectedProject.title}</h3>
+              <p>{(selectedProject.members?.length || 0) + 1} members</p>
             </div>
           </div>
         )}
