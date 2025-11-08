@@ -49,7 +49,6 @@ io.on('connection', (socket) => {
     // Optionally save message to database/storage
     // For now, we'll store in memory via the chat route
     try {
-      const http = require('http');
       const postData = JSON.stringify({
         roomId: data.roomId,
         message: data
@@ -66,7 +65,14 @@ io.on('connection', (socket) => {
         }
       };
       
-      const req = http.request(options);
+      const req = http.request(options, (res) => {
+        // Handle response if needed
+      });
+      
+      req.on('error', (error) => {
+        console.error('Error saving message:', error);
+      });
+      
       req.write(postData);
       req.end();
     } catch (error) {
@@ -89,9 +95,15 @@ const connectDB = async () => {
       console.warn('⚠️  Make sure MongoDB is running locally or set MONGODB_URI in server/.env');
     }
     
+    // Set mongoose options for better compatibility
+    mongoose.set('strictQuery', false);
+    
     await mongoose.connect(mongoURI, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      serverSelectionTimeoutMS: 10000, // Increased timeout
       socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      retryWrites: true,
+      w: 'majority'
     });
     
     console.log('✅ MongoDB connected successfully');
@@ -111,11 +123,13 @@ const connectDB = async () => {
     
   } catch (error) {
     console.error('❌ MongoDB connection failed:', error.message);
+    console.error('Full error:', error);
     console.error('💡 Make sure:');
     console.error('   1. MongoDB is running (if using localhost)');
     console.error('   2. MONGODB_URI is set correctly in server/.env');
     console.error('   3. Your IP is whitelisted in MongoDB Atlas (if using Atlas)');
     console.error('   4. Your MongoDB Atlas connection string is correct');
+    console.error('   5. Your MongoDB version is compatible (Mongoose 8.x supports MongoDB 4.4+)');
     process.exit(1); // Exit if can't connect
   }
 };
