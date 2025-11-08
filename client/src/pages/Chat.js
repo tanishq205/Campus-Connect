@@ -30,16 +30,21 @@ const Chat = () => {
         console.log('   User ID:', userData._id);
         console.log('   User Name:', userData.name);
 
-        // Connect user to Stream Chat
+        // Get token from backend
+        const tokenResponse = await api.post('/stream-chat/token', {
+          userId: userData._id.toString(),
+        });
+
+        const { token } = tokenResponse.data;
+
+        // Connect user to Stream Chat with backend-generated token
         await streamClient.connectUser(
           {
             id: userData._id.toString(), // Stream Chat user ID (using MongoDB ID)
             name: userData.name || 'Unknown',
             image: userData.profilePicture || '',
           },
-          // For production, you'd generate a token on your backend
-          // For now, we'll use the development token (not secure for production)
-          streamClient.devToken(userData._id.toString())
+          token // Use token from backend
         );
 
         console.log('✅ Connected to Stream Chat');
@@ -47,7 +52,11 @@ const Chat = () => {
       } catch (error) {
         console.error('❌ Failed to connect to Stream Chat:', error);
         setConnectionStatus('error');
-        toast.error('Failed to connect to chat. Please refresh the page.');
+        if (error.response?.status === 500) {
+          toast.error('Chat server error. Please check backend configuration.');
+        } else {
+          toast.error('Failed to connect to chat. Please refresh the page.');
+        }
       }
     };
 

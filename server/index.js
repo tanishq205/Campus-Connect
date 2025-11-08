@@ -201,6 +201,7 @@ app.use('/api/projects', require('./routes/projects'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/comments', require('./routes/comments'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/stream-chat', require('./routes/streamChat'));
 
 // Socket.io for real-time chat
 io.on('connection', (socket) => {
