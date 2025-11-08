@@ -1,16 +1,25 @@
 .sidebar {
   position: fixed;
   left: 0;
-  top: 60px;
-  width: 250px;
-  height: calc(100vh - 60px);
-  background-color: #ffffff;
-  border-right: 1px solid #dbdbdb;
+  top: 80px;
+  width: 280px;
+  height: calc(100vh - 80px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
   overflow-y: auto;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.sidebar:hover {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .sidebar-content {
-  padding: 20px;
+  padding: 24px;
 }
 
 .sidebar-profile {
@@ -49,15 +58,17 @@
 }
 
 .sidebar-user-info h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #262626;
-  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
 }
 
 .sidebar-user-info p {
-  font-size: 12px;
-  color: #8e8e8e;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .sidebar-stats {
@@ -75,15 +86,19 @@
 }
 
 .stat-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #262626;
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #8e8e8e;
-  margin-top: 4px;
+  color: #64748b;
+  margin-top: 6px;
+  font-weight: 500;
 }
 
 .sidebar-skills h4 {
@@ -100,11 +115,19 @@
 }
 
 .skill-tag {
-  padding: 4px 10px;
-  background-color: #efefef;
-  border-radius: 12px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%);
+  border-radius: 14px;
   font-size: 12px;
-  color: #262626;
+  font-weight: 600;
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  transition: all 0.3s ease;
+}
+
+.skill-tag:hover {
+  background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%);
+  transform: translateY(-1px);
 }
 
 .no-skills {
