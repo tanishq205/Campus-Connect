@@ -272,12 +272,13 @@ router.post('/:id/friend-request/:requestId', async (req, res) => {
       }
     }
 
-    // Remove the request
-    request.remove();
+    // Remove the request using pull method (works with all Mongoose versions)
+    targetUser.friendRequests.pull(req.params.requestId);
     await targetUser.save();
 
     res.json({ message: `Friend request ${action}ed` });
   } catch (error) {
+    console.error('Error processing friend request:', error);
     res.status(500).json({ error: error.message });
   }
 });
