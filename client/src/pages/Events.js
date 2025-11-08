@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -34,11 +34,6 @@ const Events = () => {
     fetchAllEvents();
   }, []);
 
-  // Apply filters when filters or allEvents change
-  useEffect(() => {
-    applyFilters();
-  }, [filters, allEvents]);
-
   const fetchAllEvents = async () => {
     try {
       setLoading(true);
@@ -71,18 +66,26 @@ const Events = () => {
     }
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
+    if (allEvents.length === 0) {
+      setFilteredEvents([]);
+      return;
+    }
+    
     let filtered = [...allEvents];
 
     // Apply search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
+    if (filters.search && filters.search.trim()) {
+      const searchLower = filters.search.toLowerCase().trim();
       filtered = filtered.filter(
-        (event) =>
-          event.title?.toLowerCase().includes(searchLower) ||
-          event.description?.toLowerCase().includes(searchLower) ||
-          event.organizer?.toLowerCase().includes(searchLower) ||
-          event.location?.toLowerCase().includes(searchLower)
+        (event) => {
+          const titleMatch = event.title?.toLowerCase().includes(searchLower) || false;
+          const descMatch = event.description?.toLowerCase().includes(searchLower) || false;
+          const organizerMatch = event.organizer?.toLowerCase().includes(searchLower) || false;
+          const locationMatch = event.location?.toLowerCase().includes(searchLower) || false;
+          
+          return titleMatch || descMatch || organizerMatch || locationMatch;
+        }
       );
     }
 
@@ -90,14 +93,14 @@ const Events = () => {
     if (filters.domain) {
       filtered = filtered.filter((event) =>
         event.domain?.some((domain) => 
-          domain.toLowerCase() === filters.domain.toLowerCase()
+          domain && domain.toLowerCase() === filters.domain.toLowerCase()
         )
       );
     }
 
     // Apply location filter
-    if (filters.location) {
-      const locationLower = filters.location.toLowerCase();
+    if (filters.location && filters.location.trim()) {
+      const locationLower = filters.location.toLowerCase().trim();
       filtered = filtered.filter((event) =>
         event.location?.toLowerCase().includes(locationLower)
       );
@@ -111,7 +114,12 @@ const Events = () => {
     });
 
     setFilteredEvents(filtered);
-  };
+  }, [filters, allEvents]);
+
+  // Apply filters when filters or allEvents change
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const clearFilters = () => {
     setFilters({
@@ -173,8 +181,11 @@ const Events = () => {
           <input
             type="text"
             placeholder="Search events by title, description, organizer, or location..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            value={filters.search || ''}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setFilters(prev => ({ ...prev, search: newValue }));
+            }}
           />
         </div>
         <button
