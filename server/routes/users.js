@@ -3,6 +3,58 @@ const router = express.Router();
 const User = require('../models/User');
 const { requireEmailVerification } = require('../middleware/emailVerification');
 
+// Search users (must come before /:id route)
+router.get('/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    const users = await User.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { college: { $regex: query, $options: 'i' } },
+        { skills: { $in: [new RegExp(query, 'i')] } }
+      ]
+    })
+      .select('name profilePicture college branch year skills')
+      .limit(50);
+    
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get recommended users (must come before /:id route)
+router.get('/recommendations/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUser = await User.findById(userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Get IDs of users to exclude (current user, friends, and users with pending requests)
+    const excludeIds = [userId];
+    if (currentUser.friends && currentUser.friends.length > 0) {
+      excludeIds.push(...currentUser.friends.map(f => f.toString()));
+    }
+    if (currentUser.friendRequests && currentUser.friendRequests.length > 0) {
+      excludeIds.push(...currentUser.friendRequests.map(req => req.from.toString()));
+    }
+    
+    // Find users not in exclude list
+    const recommendedUsers = await User.find({
+      _id: { $nin: excludeIds }
+    })
+      .select('name profilePicture college branch year skills')
+      .limit(20);
+    
+    res.json(recommendedUsers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get user profile
 router.get('/:id', async (req, res) => {
   try {
@@ -75,10 +127,77 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Search users
+router.get('/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    const users = await User.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { college: { $regex: query, $options: 'i' } },
+        { skills: { $in: [new RegExp(query, 'i')] } }
+      ]
+    })
+      .select('name profilePicture college branch year skills')
+      .limit(50);
+    
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get recommended users (users not already friends)
+router.get('/recommendations/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUser = await User.findById(userId);
+    
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Get IDs of users to exclude (current user, friends, and users with pending requests)
+    const excludeIds = [userId];
+    if (currentUser.friends && currentUser.friends.length > 0) {
+      excludeIds.push(...currentUser.friends.map(f => f.toString()));
+    }
+    if (currentUser.friendRequests && currentUser.friendRequests.length > 0) {
+      excludeIds.push(...currentUser.friendRequests.map(req => req.from.toString()));
+    }
+    
+    // Find users not in exclude list
+    const recommendedUsers = await User.find({
+      _id: { $nin: excludeIds }
+    })
+      .select('name profilePicture college branch year skills')
+      .limit(20);
+    
+    res.json(recommendedUsers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get user's friends
+router.get('/:id/friends', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate('friends', 'name profilePicture college branch year');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user.friends || []);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get user's friend requests
 router.get('/:id/friend-requests', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id)
+      .populate('friendRequests.from', 'name profilePicture college');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
