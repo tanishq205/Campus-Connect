@@ -66,7 +66,7 @@ const Chat = () => {
 
   // Set up Firestore real-time listener for messages
   useEffect(() => {
-    if (!roomId || !userData?._id) {
+    if (!roomId || !userData?._id || !currentUser) {
       // Clean up previous listener if roomId is cleared
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -77,67 +77,101 @@ const Chat = () => {
     }
 
     console.log('📡 Setting up Firestore listener for room:', roomId);
+    console.log('   Current user Firebase UID:', currentUser.uid);
+    console.log('   Current user MongoDB ID:', userData._id);
     setConnectionStatus('connected'); // Firestore handles connection automatically
 
-    // Create a reference to the messages collection for this room
-    const messagesRef = collection(db, 'chats', roomId, 'messages');
-    
-    // Create a query: order by timestamp, limit to last 100 messages
-    const messagesQuery = query(
-      messagesRef,
-      orderBy('createdAt', 'asc'),
-      limit(100)
-    );
+    try {
+      // Create a reference to the messages collection for this room
+      const messagesRef = collection(db, 'chats', roomId, 'messages');
+      
+      // Create a query: order by timestamp, limit to last 100 messages
+      // Note: If collection is empty, orderBy might require an index, but it should work
+      let messagesQuery;
+      try {
+        messagesQuery = query(
+          messagesRef,
+          orderBy('createdAt', 'asc'),
+          limit(100)
+        );
+      } catch (queryError) {
+        // If orderBy fails (e.g., no index), try without orderBy
+        console.warn('⚠️  orderBy failed, using simple query:', queryError);
+        messagesQuery = query(messagesRef, limit(100));
+      }
 
-    // Set up real-time listener
-    const unsubscribe = onSnapshot(
-      messagesQuery,
-      (snapshot) => {
-        console.log('📥 Received Firestore snapshot update');
-        
-        const newMessages = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          // Use mongoUserId if available (for matching with userData), otherwise use userId (Firebase UID)
-          const userId = data.mongoUserId || data.userId;
-          newMessages.push({
-            id: doc.id,
-            message: data.text || data.message || '',
-            user: {
-              _id: userId, // MongoDB ID for matching with userData
-              firebaseUid: data.userId, // Firebase UID (for reference)
-              name: data.userName || data.user?.name || 'Unknown',
-              profilePicture: data.userProfilePicture || data.user?.profilePicture || '',
-            },
-            timestamp: data.createdAt?.toDate?.() 
-              ? data.createdAt.toDate().toISOString()
-              : (data.timestamp || new Date().toISOString()),
-            createdAt: data.createdAt,
+      // Set up real-time listener
+      const unsubscribe = onSnapshot(
+        messagesQuery,
+        (snapshot) => {
+          console.log('📥 Received Firestore snapshot update');
+          console.log('   Snapshot size:', snapshot.size);
+          console.log('   Has pending writes:', snapshot.metadata.hasPendingWrites);
+          
+          const newMessages = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            // Use mongoUserId if available (for matching with userData), otherwise use userId (Firebase UID)
+            const userId = data.mongoUserId || data.userId;
+            newMessages.push({
+              id: doc.id,
+              message: data.text || data.message || '',
+              user: {
+                _id: userId, // MongoDB ID for matching with userData
+                firebaseUid: data.userId, // Firebase UID (for reference)
+                name: data.userName || data.user?.name || 'Unknown',
+                profilePicture: data.userProfilePicture || data.user?.profilePicture || '',
+              },
+              timestamp: data.createdAt?.toDate?.() 
+                ? data.createdAt.toDate().toISOString()
+                : (data.timestamp || new Date().toISOString()),
+              createdAt: data.createdAt,
+            });
           });
-        });
 
-        console.log(`✅ Loaded ${newMessages.length} messages from Firestore`);
-        setMessages(newMessages);
-      },
-      (error) => {
-        console.error('❌ Firestore listener error:', error);
-        setConnectionStatus('error');
-        toast.error('Error loading messages. Please refresh the page.');
-      }
-    );
+          // Sort messages by timestamp if not already sorted (fallback if orderBy didn't work)
+          newMessages.sort((a, b) => {
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            return timeA - timeB;
+          });
 
-    // Store unsubscribe function
-    unsubscribeRef.current = unsubscribe;
+          console.log(`✅ Loaded ${newMessages.length} messages from Firestore`);
+          setMessages(newMessages);
+        },
+        (error) => {
+          console.error('❌ Firestore listener error:', error);
+          console.error('   Error code:', error.code);
+          console.error('   Error message:', error.message);
+          setConnectionStatus('error');
+          
+          if (error.code === 'permission-denied') {
+            toast.error('Permission denied. Check Firestore security rules.');
+          } else if (error.code === 'failed-precondition') {
+            toast.error('Firestore index required. Check console for link.');
+          } else {
+            toast.error('Error loading messages: ' + error.message);
+          }
+        }
+      );
 
-    // Cleanup function
-    return () => {
-      console.log('🧹 Cleaning up Firestore listener for room:', roomId);
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
-  }, [roomId, userData?._id]);
+      // Store unsubscribe function
+      unsubscribeRef.current = unsubscribe;
+
+      // Cleanup function
+      return () => {
+        console.log('🧹 Cleaning up Firestore listener for room:', roomId);
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error setting up Firestore listener:', error);
+      setConnectionStatus('error');
+      toast.error('Failed to set up chat. Please refresh the page.');
+    }
+  }, [roomId, userData?._id, currentUser]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -167,37 +201,63 @@ const Chat = () => {
     setNewMessage(''); // Clear input immediately
 
     try {
-      console.log('📤 Sending message to Firestore:', {
-        roomId,
-        firebaseUid: currentUser.uid,
-        mongoUserId: userData._id,
-        message: messageText
-      });
+      console.log('\n📤 === SENDING MESSAGE ===');
+      console.log('Room ID:', roomId);
+      console.log('Firebase UID:', currentUser.uid);
+      console.log('MongoDB User ID:', userData._id);
+      console.log('User Name:', userData.name);
+      console.log('Message:', messageText);
+      console.log('Firestore DB:', db ? 'Initialized' : 'NOT INITIALIZED');
+
+      // Verify Firestore is initialized
+      if (!db) {
+        throw new Error('Firestore is not initialized. Check Firebase configuration.');
+      }
 
       // Create a reference to the messages collection
       const messagesRef = collection(db, 'chats', roomId, 'messages');
+      console.log('Messages collection reference created');
 
-      // Add message to Firestore
-      // Note: userId must be Firebase UID for security rules, but we also store mongoUserId for display
-      await addDoc(messagesRef, {
+      // Prepare message data
+      const messageData = {
         text: messageText,
         userId: currentUser.uid, // Firebase UID for security rules
         mongoUserId: userData._id, // MongoDB ID for display/matching
-        userName: userData.name,
+        userName: userData.name || 'Unknown',
         userProfilePicture: userData.profilePicture || '',
         createdAt: serverTimestamp(),
         timestamp: new Date().toISOString(), // Fallback timestamp
-      });
+      };
 
+      console.log('Message data prepared:', messageData);
+
+      // Add message to Firestore
+      const docRef = await addDoc(messagesRef, messageData);
       console.log('✅ Message sent to Firestore successfully');
+      console.log('   Document ID:', docRef.id);
+      console.log('📤 === MESSAGE SENT ===\n');
+      
       // Message will appear automatically via the real-time listener
       
     } catch (error) {
-      console.error('❌ Error sending message:', error);
+      console.error('\n❌ === ERROR SENDING MESSAGE ===');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Error details:', error);
+      console.error('❌ === END ERROR ===\n');
+      
       if (error.code === 'permission-denied') {
-        toast.error('Permission denied. Please check Firestore security rules.');
+        toast.error('Permission denied. Check Firestore security rules and make sure Firestore is enabled.');
+        console.error('💡 Make sure:');
+        console.error('   1. Firestore is enabled in Firebase Console');
+        console.error('   2. Security rules allow authenticated users to write');
+        console.error('   3. userId in message matches currentUser.uid');
+      } else if (error.code === 'failed-precondition') {
+        toast.error('Firestore index required. Check console for link to create index.');
+      } else if (error.message?.includes('not initialized')) {
+        toast.error('Firestore not initialized. Check Firebase configuration.');
       } else {
-        toast.error('Failed to send message. Please try again.');
+        toast.error(`Failed to send message: ${error.message || 'Unknown error'}`);
       }
       setNewMessage(messageText); // Restore message on error
     }
