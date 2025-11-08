@@ -15,6 +15,8 @@ import ProjectDetail from './pages/ProjectDetail';
 import Events from './pages/Events';
 import DiscoverEvents from './pages/DiscoverEvents';
 import CreateEvent from './pages/CreateEvent';
+import Discussions from './pages/Discussions';
+import ThreadDetail from './pages/ThreadDetail';
 import Chat from './pages/Chat';
 import './App.css';
 
@@ -44,6 +46,8 @@ function App() {
                         <Route path="/events" element={<Events />} />
                         <Route path="/discover-events" element={<DiscoverEvents />} />
                         <Route path="/create-event" element={<CreateEvent />} />
+                        <Route path="/discussions" element={<Discussions />} />
+                        <Route path="/discussions/:id" element={<ThreadDetail />} />
                         <Route path="/chat" element={<Chat />} />
                         <Route path="/chat/project/:projectId" element={<Chat />} />
                         <Route path="/chat/friend/:friendId" element={<Chat />} />

@@ -219,6 +219,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/comments', require('./routes/comments'));
+app.use('/api/discussions', require('./routes/discussions'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/stream-chat', require('./routes/streamChat'));
 
