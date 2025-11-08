@@ -7,7 +7,7 @@ This guide will help you deploy your Campus Connect application on Render.
 1. A GitHub account
 2. A Render account (sign up at [render.com](https://render.com))
 3. MongoDB Atlas account (for database)
-4. Firebase project (for authentication)
+4. Firebase project (for authentication and Firestore for chat)
 
 ## Step 1: Prepare Your Repository
 
@@ -78,7 +78,6 @@ This guide will help you deploy your Campus Connect application on Render.
    
    ```
    REACT_APP_API_URL=https://campus-connect-api.onrender.com/api
-   REACT_APP_SOCKET_URL=https://campus-connect-api.onrender.com
    REACT_APP_FIREBASE_API_KEY=<your-firebase-api-key>
    REACT_APP_FIREBASE_AUTH_DOMAIN=<your-firebase-auth-domain>
    REACT_APP_FIREBASE_PROJECT_ID=<your-firebase-project-id>
@@ -90,7 +89,7 @@ This guide will help you deploy your Campus Connect application on Render.
    **Important**: 
    - Replace `<your-firebase-...>` with your actual Firebase credentials
    - The `REACT_APP_API_URL` should point to your backend URL from Step 2
-   - The `REACT_APP_SOCKET_URL` should be your backend URL (without `/api`)
+   - **Note:** Chat now uses Firebase Firestore, so `REACT_APP_SOCKET_URL` is not needed
 
 5. **Click "Create Static Site"**
 
@@ -170,6 +169,18 @@ This guide will help you deploy your Campus Connect application on Render.
    - Verify all Firebase environment variables are set
    - Check Firebase project settings
 
+5. **"Firestore permission denied"**:
+   - Check Firestore security rules in Firebase Console
+   - Make sure Firestore is enabled in your Firebase project
+   - Verify user is authenticated before sending messages
+   - See [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md) for detailed setup
+
+6. **Chat messages not appearing**:
+   - Check Firestore is enabled in Firebase Console
+   - Verify security rules allow read/write access
+   - Check browser console for Firestore errors
+   - Ensure roomId is being generated correctly
+
 ## Environment Variables Summary
 
 ### Backend (API Server)
@@ -180,13 +191,14 @@ This guide will help you deploy your Campus Connect application on Render.
 
 ### Frontend (React App)
 - `REACT_APP_API_URL=<backend-url>/api`
-- `REACT_APP_SOCKET_URL=<backend-url>`
 - `REACT_APP_FIREBASE_API_KEY=<firebase-api-key>`
 - `REACT_APP_FIREBASE_AUTH_DOMAIN=<firebase-auth-domain>`
 - `REACT_APP_FIREBASE_PROJECT_ID=<firebase-project-id>`
 - `REACT_APP_FIREBASE_STORAGE_BUCKET=<firebase-storage-bucket>`
 - `REACT_APP_FIREBASE_MESSAGING_SENDER_ID=<firebase-messaging-sender-id>`
 - `REACT_APP_FIREBASE_APP_ID=<firebase-app-id>`
+
+**Note:** `REACT_APP_SOCKET_URL` is no longer needed as chat now uses Firebase Firestore instead of Socket.io.
 
 ## Notes
 
@@ -203,6 +215,16 @@ This guide will help you deploy your Campus Connect application on Render.
   - You can add custom domains in service settings
   - Update environment variables accordingly
 
+## Firestore Setup (Required for Chat)
+
+The chat feature uses Firebase Firestore for real-time messaging. **You must complete this setup** for chat to work:
+
+1. **Enable Firestore** in Firebase Console
+2. **Set up security rules** (see [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md))
+3. **Add authorized domain** for your Render URL
+
+**Important:** Without Firestore setup, the chat feature will not work. See [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md) for step-by-step instructions.
+
 ## Support
 
 If you encounter issues:
@@ -210,4 +232,5 @@ If you encounter issues:
 2. Check browser console
 3. Verify all environment variables
 4. Check MongoDB Atlas and Firebase configurations
+5. For chat issues, check Firestore setup (see [FIRESTORE_SETUP.md](./FIRESTORE_SETUP.md))
 
