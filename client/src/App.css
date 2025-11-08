@@ -1,0 +1,30 @@
+.app {
+  min-height: 100vh;
+  background-color: #fafafa;
+}
+
+.app-body {
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: 60px;
+}
+
+.app-content {
+  flex: 1;
+  margin-left: 250px;
+  padding: 20px;
+  min-height: calc(100vh - 60px);
+}
+
+@media (max-width: 768px) {
+  .app-body {
+    flex-direction: column;
+  }
+  
+  .app-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+}
+

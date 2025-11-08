@@ -1,0 +1,99 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #dbdbdb;
+  z-index: 1000;
+}
+
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.navbar-logo h2 {
+  font-size: 20px;
+  color: #262626;
+  font-weight: 600;
+}
+
+.navbar-search {
+  flex: 1;
+  max-width: 300px;
+  margin: 0 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-search .search-icon {
+  position: absolute;
+  left: 12px;
+  color: #8e8e8e;
+  font-size: 16px;
+}
+
+.navbar-search input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  background-color: #efefef;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.navbar-search input::placeholder {
+  color: #8e8e8e;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.nav-link {
+  font-size: 24px;
+  color: #262626;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: #0095f6;
+}
+
+.nav-signout {
+  padding: 6px 16px;
+  background-color: #0095f6;
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-signout:hover {
+  background-color: #0084d4;
+}
+
+@media (max-width: 768px) {
+  .navbar-search {
+    display: none;
+  }
+  
+  .navbar-links {
+    gap: 12px;
+  }
+  
+  .nav-link {
+    font-size: 20px;
+  }
+}
+
