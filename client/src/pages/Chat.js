@@ -39,8 +39,11 @@ const Chat = () => {
       setSelectedFriend(null);
     } else if (friendId && userData?._id) {
       // Create a consistent room ID for two friends (sorted IDs)
-      const friendIds = [userData._id, friendId].sort();
+      // IMPORTANT: Both users must generate the SAME room ID
+      const friendIds = [userData._id.toString(), friendId.toString()].sort();
       const newRoomId = `friend-${friendIds[0]}-${friendIds[1]}`;
+      console.log('🔑 Generated room ID:', newRoomId);
+      console.log('   User IDs:', friendIds);
       setRoomId(newRoomId);
       roomIdRef.current = newRoomId;
       // Find and set selected friend
@@ -89,20 +92,21 @@ const Chat = () => {
     });
 
     newSocket.on('receive-message', (data) => {
-      console.log('📥 Received message event:', {
-        roomId: data.roomId,
-        from: data.user?.name,
-        message: data.message,
-        messageId: data.id
-      });
+      console.log('\n📥 === RECEIVED MESSAGE EVENT ===');
+      console.log('Message roomId:', data.roomId);
+      console.log('Current roomId (ref):', roomIdRef.current);
+      console.log('From:', data.user?.name, `(${data.user?._id})`);
+      console.log('Message:', data.message);
+      console.log('Message ID:', data.id);
       
       // Check if message is for current room using ref (always up-to-date)
       const currentRoom = roomIdRef.current;
       const isForCurrentRoom = data.roomId === currentRoom;
       
-      console.log(`Checking room match: ${data.roomId} === ${currentRoom} = ${isForCurrentRoom}`);
+      console.log(`Room match check: "${data.roomId}" === "${currentRoom}" = ${isForCurrentRoom}`);
       
       if (isForCurrentRoom) {
+        console.log('✅ Room matches! Adding message to state...');
         setMessages((prev) => {
           // Check for duplicates using message ID if available
           const exists = data.id 
@@ -119,16 +123,37 @@ const Chat = () => {
             return prev;
           }
           
-          console.log('✅ Adding new message to state');
+          console.log('✅ Message added to state');
+          console.log(`📥 === MESSAGE ADDED ===\n`);
           return [...prev, data];
         });
       } else {
-        console.log(`⚠️ Message for different room (${data.roomId} vs ${currentRoom}), ignoring`);
+        console.log(`❌ Room mismatch! Ignoring message.`);
+        console.log(`   Expected: "${currentRoom}"`);
+        console.log(`   Received: "${data.roomId}"`);
+        console.log(`📥 === MESSAGE IGNORED ===\n`);
       }
     });
 
-    newSocket.on('room-joined', ({ roomId }) => {
-      console.log('✅ Confirmed: Joined room', roomId);
+    newSocket.on('room-joined', ({ roomId, userCount }) => {
+      console.log(`✅ Confirmed: Joined room ${roomId} (${userCount} users in room)`);
+      if (userCount < 2 && roomId.startsWith('friend-')) {
+        console.warn('⚠️  Only 1 user in friend chat room. Other user needs to join.');
+      }
+    });
+
+    newSocket.on('room-join-error', ({ error }) => {
+      console.error('❌ Room join error:', error);
+      toast.error('Failed to join chat room');
+    });
+
+    newSocket.on('user-joined-room', ({ roomId, userId }) => {
+      console.log(`👋 User ${userId} joined room ${roomId}`);
+    });
+
+    newSocket.on('friend-chat-ready', ({ roomId }) => {
+      console.log(`✅ Friend chat ready! Both users are in room ${roomId}`);
+      toast.success('Friend is online!');
     });
 
     newSocket.on('message-error', ({ error }) => {
@@ -151,7 +176,13 @@ const Chat = () => {
 
   // Handle room joining when roomId changes
   useEffect(() => {
-    if (!socket || !socket.connected || !roomId) {
+    if (!socket || !socket.connected) {
+      console.log('⏳ Waiting for socket connection...');
+      return;
+    }
+
+    if (!roomId) {
+      console.log('⏳ No roomId set yet');
       return;
     }
 
@@ -162,7 +193,11 @@ const Chat = () => {
     }
 
     // Join new room
-    console.log('🚪 Joining new room:', roomId);
+    console.log('🚪 Requesting to join room:', roomId);
+    console.log('   Current user:', userData?._id);
+    console.log('   Socket ID:', socket.id);
+    console.log('   Socket connected:', socket.connected);
+    
     socket.emit('join-room', roomId);
     setCurrentRoomId(roomId);
     roomIdRef.current = roomId; // Update ref for message handler
@@ -171,7 +206,7 @@ const Chat = () => {
     setMessages([]);
     setTimeout(() => {
       loadMessages(roomId);
-    }, 300);
+    }, 500); // Increased delay to ensure room join is processed
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, socket]);
 
@@ -229,17 +264,18 @@ const Chat = () => {
     };
 
     try {
-      console.log('📤 Sending message:', {
-        roomId: messageData.roomId,
-        user: messageData.user?.name,
-        message: messageData.message,
-        socketId: socket.id,
-        connected: socket.connected
-      });
+      console.log('\n📤 === SENDING MESSAGE ===');
+      console.log('Room ID:', messageData.roomId);
+      console.log('User:', messageData.user?.name, `(${messageData.user?._id})`);
+      console.log('Message:', messageData.message);
+      console.log('Socket ID:', socket.id);
+      console.log('Socket connected:', socket.connected);
+      console.log('Current room (ref):', roomIdRef.current);
       
       // Send message via socket
       socket.emit('send-message', messageData);
-      console.log('✅ Message sent to server');
+      console.log('✅ Message emitted to server');
+      console.log('⏳ Waiting for server to broadcast back...\n');
       
       // Don't add to local state - wait for server to broadcast it back
       // This ensures all users (including sender) see the message consistently
@@ -254,8 +290,12 @@ const Chat = () => {
   const handleSelectFriend = (friend) => {
     setSelectedFriend(friend);
     if (userData?._id && friend._id) {
-      const friendIds = [userData._id, friend._id].sort();
+      // Create a consistent room ID for two friends (sorted IDs)
+      // IMPORTANT: Both users must generate the SAME room ID
+      const friendIds = [userData._id.toString(), friend._id.toString()].sort();
       const newRoomId = `friend-${friendIds[0]}-${friendIds[1]}`;
+      console.log('🔑 Generated room ID:', newRoomId);
+      console.log('   User IDs:', friendIds);
       setRoomId(newRoomId);
       roomIdRef.current = newRoomId;
       setMessages([]);

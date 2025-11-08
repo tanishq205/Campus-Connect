@@ -38,11 +38,17 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', async (roomId) => {
     try {
-      // Leave all other rooms first
+      if (!roomId) {
+        console.warn(`⚠️  Invalid roomId provided: ${roomId}`);
+        return;
+      }
+      
+      // Leave all other rooms first (except the socket's own room)
       const rooms = Array.from(socket.rooms);
       rooms.forEach(room => {
         if (room !== socket.id && room !== roomId) {
           socket.leave(room);
+          console.log(`🚪 User ${socket.id} left room: ${room}`);
         }
       });
       
@@ -52,15 +58,25 @@ io.on('connection', (socket) => {
       
       // Get all sockets in the room to verify
       const socketsInRoom = await io.in(roomId).fetchSockets();
-      console.log(`📊 Room ${roomId} now has ${socketsInRoom.length} user(s):`);
+      console.log(`📊 Room "${roomId}" now has ${socketsInRoom.length} user(s):`);
       socketsInRoom.forEach(s => {
         console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
       });
       
       // Notify client that room join was successful
-      socket.emit('room-joined', { roomId });
+      socket.emit('room-joined', { roomId, userCount: socketsInRoom.length });
+      
+      // Also notify other users in the room that someone joined
+      socket.to(roomId).emit('user-joined-room', { roomId, userId });
+      
+      // If this is a friend chat and there are now 2 users, notify both
+      if (roomId.startsWith('friend-') && socketsInRoom.length === 2) {
+        console.log('✅ Friend chat room is ready! Both users are connected.');
+        io.to(roomId).emit('friend-chat-ready', { roomId });
+      }
     } catch (error) {
-      console.error('Error joining room:', error);
+      console.error('❌ Error joining room:', error);
+      socket.emit('room-join-error', { error: 'Failed to join room' });
     }
   });
 
@@ -77,19 +93,7 @@ io.on('connection', (socket) => {
       console.log(`Message: ${data.message}`);
       console.log(`Socket: ${socket.id}`);
       
-      // Verify room exists and get all sockets in it
-      const socketsInRoom = await io.in(data.roomId).fetchSockets();
-      console.log(`👥 Users in room ${data.roomId}: ${socketsInRoom.length}`);
-      
-      if (socketsInRoom.length === 0) {
-        console.warn(`⚠️  WARNING: No users in room ${data.roomId}! Message might not be delivered.`);
-      } else {
-        socketsInRoom.forEach(s => {
-          console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
-        });
-      }
-      
-      // Save message to backend storage
+      // Save message to backend storage first
       const chatRoute = require('./routes/chat');
       const { messagesStore } = chatRoute;
       
@@ -101,12 +105,11 @@ io.on('connection', (socket) => {
       const messageToSave = {
         ...data,
         timestamp: data.timestamp || new Date().toISOString(),
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique ID for duplicate detection
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       };
       
       messages.push(messageToSave);
       
-      // Keep only last 100 messages per room
       if (messages.length > 100) {
         messages.shift();
       }
@@ -114,11 +117,32 @@ io.on('connection', (socket) => {
       messagesStore.set(data.roomId, messages);
       console.log(`💾 Message saved. Room now has ${messages.length} total messages`);
       
-      // Broadcast to ALL users in the room (including sender)
-      // This ensures everyone sees the message, including the sender
-      io.to(data.roomId).emit('receive-message', messageToSave);
-      console.log(`📢 Message broadcasted to ${socketsInRoom.length} user(s) in room ${data.roomId}`);
-      console.log(`✅ === MESSAGE SENT ===\n`);
+      // Get all sockets in the room BEFORE broadcasting
+      const socketsInRoom = await io.in(data.roomId).fetchSockets();
+      console.log(`👥 Users in room "${data.roomId}": ${socketsInRoom.length}`);
+      
+      if (socketsInRoom.length === 0) {
+        console.warn(`⚠️  WARNING: No users in room ${data.roomId}!`);
+        console.warn(`⚠️  This means the other user hasn't joined the room yet.`);
+        console.warn(`⚠️  Message saved but not delivered.`);
+        console.warn(`⚠️  Make sure both users are in the chat page and have joined the room.`);
+      } else {
+        console.log(`📋 Sockets in room:`);
+        socketsInRoom.forEach(s => {
+          console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
+        });
+        
+        // Broadcast to ALL users in the room (including sender)
+        console.log(`📢 Broadcasting message to room "${data.roomId}"...`);
+        io.to(data.roomId).emit('receive-message', messageToSave);
+        console.log(`✅ Message broadcasted to ${socketsInRoom.length} user(s)`);
+        
+        // Double-check: verify the room still has users
+        const verifySockets = await io.in(data.roomId).fetchSockets();
+        console.log(`🔍 Verification: Room now has ${verifySockets.length} user(s) after broadcast`);
+      }
+      
+      console.log(`✅ === MESSAGE PROCESSED ===\n`);
       
     } catch (error) {
       console.error('❌ Error in send-message handler:', error);

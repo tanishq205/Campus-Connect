@@ -1,0 +1,48 @@
+services:
+  # Backend API Service
+  - type: web
+    name: campus-connect-api
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+    healthCheckPath: /api/auth/health
+
+  # Frontend Web Service
+  - type: web
+    name: campus-connect-web
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false
+      - key: REACT_APP_SOCKET_URL
+        sync: false
+      - key: REACT_APP_FIREBASE_API_KEY
+        sync: false
+      - key: REACT_APP_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: REACT_APP_FIREBASE_PROJECT_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: REACT_APP_FIREBASE_APP_ID
+        sync: false
+
+# Note: After deploying, you'll need to:
+# 1. Set all environment variables in Render Dashboard
+# 2. Update CLIENT_URL in backend to match your frontend URL
+# 3. Update REACT_APP_API_URL and REACT_APP_SOCKET_URL in frontend to match your backend URL
+
