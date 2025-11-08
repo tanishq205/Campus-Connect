@@ -108,6 +108,13 @@ const StepOne = ({ formData, updateField, nextStep, showPassword, setShowPasswor
     if (validateStep()) nextStep();
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleNext();
+    }
+  };
+
   const getPasswordStrength = (password) => {
     if (!password) return { strength: 0, label: '', color: '#ddd' };
     
@@ -126,20 +133,23 @@ const StepOne = ({ formData, updateField, nextStep, showPassword, setShowPasswor
   const passwordStrength = getPasswordStrength(formData.password);
 
   return (
-    <div className="step-content">
+    <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="step-content">
       <h2>Get Started</h2>
       <input
         type="text"
         placeholder="Full Name"
         value={formData.name}
         onChange={(e) => updateField('name', e.target.value)}
+        onKeyPress={handleKeyPress}
         required
+        autoFocus
       />
       <input
         type="text"
         placeholder="College Name"
         value={formData.collegeName}
         onChange={(e) => updateField('collegeName', e.target.value)}
+        onKeyPress={handleKeyPress}
         required
       />
       <input
@@ -147,6 +157,7 @@ const StepOne = ({ formData, updateField, nextStep, showPassword, setShowPasswor
         placeholder="College Email ID"
         value={formData.collegeEmail}
         onChange={(e) => updateField('collegeEmail', e.target.value)}
+        onKeyPress={handleKeyPress}
         required
       />
       
@@ -157,12 +168,14 @@ const StepOne = ({ formData, updateField, nextStep, showPassword, setShowPasswor
             placeholder="Password (min. 6 characters)"
             value={formData.password}
             onChange={(e) => updateField('password', e.target.value)}
+            onKeyPress={handleKeyPress}
             required
           />
           <button 
             type="button"
             className="toggle-password"
             onClick={() => setShowPassword(!showPassword)}
+            tabIndex={-1}
           >
             {showPassword ? '👁️' : '👁️‍🗨️'}
           </button>
@@ -188,27 +201,36 @@ const StepOne = ({ formData, updateField, nextStep, showPassword, setShowPasswor
           placeholder="Confirm Password"
           value={formData.confirmPassword}
           onChange={(e) => updateField('confirmPassword', e.target.value)}
+          onKeyPress={handleKeyPress}
           required
         />
         <button 
           type="button"
           className="toggle-password"
           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+          tabIndex={-1}
         >
           {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
         </button>
       </div>
 
-      <button className="btn-primary" onClick={handleNext}>Next</button>
+      <button type="submit" className="btn-primary">Next</button>
       <p className="login-link">Already have an account? <a href="/login">Log in</a></p>
-    </div>
+    </form>
   );
 };
 
 // Step 2 - Branch/Year
 const StepTwo = ({ formData, updateField, nextStep, prevStep }) => {
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      nextStep();
+    }
+  };
+
   return (
-    <div className="step-content">
+    <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} className="step-content">
       <h2>Academic Details</h2>
       <p className="subtitle">Tell us about your branch and year (optional)</p>
       <input
@@ -216,20 +238,29 @@ const StepTwo = ({ formData, updateField, nextStep, prevStep }) => {
         placeholder="Branch/Year (e.g., CS 3rd Year)"
         value={formData.branch}
         onChange={(e) => updateField('branch', e.target.value)}
+        onKeyPress={handleKeyPress}
+        autoFocus
       />
       <div className="button-group">
-        <button className="btn-secondary" onClick={prevStep}>Back</button>
-        <button className="btn-primary" onClick={nextStep}>Next</button>
+        <button type="button" className="btn-secondary" onClick={prevStep}>Back</button>
+        <button type="submit" className="btn-primary">Next</button>
       </div>
-      <button className="btn-skip" onClick={nextStep}>Skip</button>
-    </div>
+      <button type="button" className="btn-skip" onClick={nextStep}>Skip</button>
+    </form>
   );
 };
 
 // Step 3 - Profile Image & Links
 const StepThree = ({ formData, updateField, handleImageUpload, nextStep, prevStep }) => {
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      nextStep();
+    }
+  };
+
   return (
-    <div className="step-content">
+    <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} className="step-content">
       <h2>Profile & Links</h2>
       <p className="subtitle">Add your profile photo and social links (optional)</p>
       <div className="image-upload">
@@ -242,6 +273,7 @@ const StepThree = ({ formData, updateField, handleImageUpload, nextStep, prevSte
           accept="image/*"
           onChange={handleImageUpload}
           style={{ display: 'none' }}
+          tabIndex={-1}
         />
       </div>
       <input
@@ -249,46 +281,60 @@ const StepThree = ({ formData, updateField, handleImageUpload, nextStep, prevSte
         placeholder="🔗 GitHub URL (optional)"
         value={formData.github}
         onChange={(e) => updateField('github', e.target.value)}
+        onKeyPress={handleKeyPress}
+        autoFocus
       />
       <input
         type="url"
         placeholder="🔗 LinkedIn URL (optional)"
         value={formData.linkedin}
         onChange={(e) => updateField('linkedin', e.target.value)}
+        onKeyPress={handleKeyPress}
       />
       <input
         type="url"
         placeholder="🔗 Portfolio URL (optional)"
         value={formData.portfolio}
         onChange={(e) => updateField('portfolio', e.target.value)}
+        onKeyPress={handleKeyPress}
       />
       <div className="button-group">
-        <button className="btn-secondary" onClick={prevStep}>Back</button>
-        <button className="btn-primary" onClick={nextStep}>Next</button>
+        <button type="button" className="btn-secondary" onClick={prevStep}>Back</button>
+        <button type="submit" className="btn-primary">Next</button>
       </div>
-      <button className="btn-skip" onClick={nextStep}>Skip</button>
-    </div>
+      <button type="button" className="btn-skip" onClick={nextStep}>Skip</button>
+    </form>
   );
 };
 
 // Step 4 - Bio
 const StepFour = ({ formData, updateField, handleSubmit, prevStep }) => {
+  const handleKeyPress = (e) => {
+    // For textarea, allow Shift+Enter for new line, Enter alone submits
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
-    <div className="step-content">
+    <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="step-content">
       <h2>Tell Us About Yourself</h2>
       <p className="subtitle">Share your interests, skills, and what you're passionate about (optional)</p>
       <textarea
-        placeholder="Write a short bio about yourself..."
+        placeholder="Write a short bio about yourself... (Shift+Enter for new line, Enter to submit)"
         value={formData.bio}
         onChange={(e) => updateField('bio', e.target.value)}
+        onKeyPress={handleKeyPress}
         rows="5"
+        autoFocus
       />
       <div className="button-group">
-        <button className="btn-secondary" onClick={prevStep}>Back</button>
-        <button className="btn-primary" onClick={handleSubmit}>Complete Signup</button>
+        <button type="button" className="btn-secondary" onClick={prevStep}>Back</button>
+        <button type="submit" className="btn-primary">Complete Signup</button>
       </div>
-      <button className="btn-skip" onClick={handleSubmit}>Skip & Finish</button>
-    </div>
+      <button type="button" className="btn-skip" onClick={handleSubmit}>Skip & Finish</button>
+    </form>
   );
 };
 

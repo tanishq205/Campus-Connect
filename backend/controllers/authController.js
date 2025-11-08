@@ -9,7 +9,7 @@ const generateUsername = (name, collegeEmail) => {
   return `${namePart}${randomNum}`;
 };
 
-// Register user
+// Register user (same as before)
 exports.register = async (req, res) => {
   try {
     const { name, collegeName, collegeEmail, password, branch, github, linkedin, portfolio, bio } = req.body;
@@ -61,27 +61,44 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user (same as before)
+// Login user - UPDATED to accept username OR email
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { usernameOrEmail, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+    if (!usernameOrEmail || !password) {
+      return res.status(400).json({ error: 'Username/Email and password are required' });
     }
 
-    const [users] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    // Check if input is email or username
+    const isEmail = usernameOrEmail.includes('@');
+    
+    // Query database for user by username OR email
+    let query, params;
+    if (isEmail) {
+      query = 'SELECT * FROM users WHERE college_email = ?';
+      params = [usernameOrEmail];
+    } else {
+      query = 'SELECT * FROM users WHERE username = ?';
+      params = [usernameOrEmail];
+    }
+
+    const [users] = await db.query(query, params);
+    
     if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+      return res.status(401).json({ error: 'Invalid username/email or password' });
     }
 
     const user = users[0];
+
+    // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+      return res.status(401).json({ error: 'Invalid username/email or password' });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, username: user.username }, 
       process.env.JWT_SECRET || 'your_jwt_secret_key_here', 
@@ -93,7 +110,8 @@ exports.login = async (req, res) => {
       token,
       userId: user.id,
       username: user.username,
-      name: user.name
+      name: user.name,
+      email: user.college_email
     });
   } catch (error) {
     console.error('Login error:', error);

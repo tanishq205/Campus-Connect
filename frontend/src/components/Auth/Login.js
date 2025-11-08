@@ -4,10 +4,11 @@ import './Login.css';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({ 
-    username: '', 
+    usernameOrEmail: '', 
     password: '' 
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,8 +21,9 @@ const Login = () => {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userId', response.data.userId);
       localStorage.setItem('username', response.data.username);
+      localStorage.setItem('name', response.data.name);
       
-      alert('Login successful!');
+      alert(`Welcome back, ${response.data.name}!`);
       window.location.href = '/dashboard';
     } catch (error) {
       console.error('Login error:', error);
@@ -39,18 +41,31 @@ const Login = () => {
         <form onSubmit={handleLogin}>
           <input
             type="text"
-            placeholder="Username"
-            value={credentials.username}
-            onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+            placeholder="Username or Email"
+            value={credentials.usernameOrEmail}
+            onChange={(e) => setCredentials({ ...credentials, usernameOrEmail: e.target.value })}
             required
+            autoFocus
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={credentials.password}
-            onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-            required
-          />
+          
+          <div className="password-input-wrapper">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={credentials.password}
+              onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+              required
+            />
+            <button 
+              type="button"
+              className="toggle-password"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex={-1}
+            >
+              {showPassword ? '👁️' : '👁️‍🗨️'}
+            </button>
+          </div>
+
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? 'Logging in...' : 'Log In'}
           </button>

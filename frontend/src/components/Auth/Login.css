@@ -45,6 +45,32 @@
   border-color: #667eea;
 }
 
+/* Password input with toggle button */
+.password-input-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.password-input-wrapper input {
+  padding-right: 45px;
+  margin-bottom: 0;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .login-card .btn-primary {
   width: 100%;
   padding: 12px;
