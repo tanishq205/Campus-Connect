@@ -12,23 +12,36 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    
+    // Validate on frontend first
+    if (!credentials.usernameOrEmail.trim() || !credentials.password.trim()) {
+      alert('Please fill in all fields');
+      return;
+    }
+
     setLoading(true);
 
-    // Debug: Log what we're sending
-    console.log('Sending login data:', credentials);
+    // Debug logs
+    console.log('📤 Sending login request');
+    console.log('Data:', {
+      usernameOrEmail: credentials.usernameOrEmail,
+      passwordLength: credentials.password.length
+    });
 
     try {
-      const response = await axios.post(
-        'http://localhost:5000/api/auth/login',
-        credentials,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
+      const response = await axios({
+        method: 'post',
+        url: 'http://localhost:5000/api/auth/login',
+        data: {
+          usernameOrEmail: credentials.usernameOrEmail.trim(),
+          password: credentials.password.trim()
+        },
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
+      });
       
-      console.log('Login response:', response.data);
+      console.log('✅ Login response:', response.data);
       
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userId', response.data.userId);
@@ -38,9 +51,11 @@ const Login = () => {
       alert(`Welcome back, ${response.data.name}!`);
       window.location.href = '/dashboard';
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       console.error('Error response:', error.response?.data);
-      alert(error.response?.data?.error || 'Login failed. Check your credentials.');
+      
+      const errorMsg = error.response?.data?.error || 'Login failed. Please try again.';
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -54,20 +69,30 @@ const Login = () => {
         <form onSubmit={handleLogin}>
           <input
             type="text"
+            name="usernameOrEmail"
             placeholder="Username or Email"
             value={credentials.usernameOrEmail}
-            onChange={(e) => setCredentials({ ...credentials, usernameOrEmail: e.target.value })}
+            onChange={(e) => setCredentials({ 
+              ...credentials, 
+              usernameOrEmail: e.target.value 
+            })}
             required
             autoFocus
+            autoComplete="username"
           />
           
           <div className="password-input-wrapper">
             <input
               type={showPassword ? "text" : "password"}
+              name="password"
               placeholder="Password"
               value={credentials.password}
-              onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+              onChange={(e) => setCredentials({ 
+                ...credentials, 
+                password: e.target.value 
+              })}
               required
+              autoComplete="current-password"
             />
             <button 
               type="button"
