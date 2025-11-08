@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
+const { requireAdmin } = require('../middleware/auth');
 
-// Create event
-router.post('/', async (req, res) => {
+// Create event (Admin only)
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const event = new Event(req.body);
     await event.save();

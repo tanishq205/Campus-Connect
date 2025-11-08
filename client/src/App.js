@@ -14,6 +14,7 @@ import Profile from './pages/Profile';
 import ProjectDetail from './pages/ProjectDetail';
 import Events from './pages/Events';
 import DiscoverEvents from './pages/DiscoverEvents';
+import CreateEvent from './pages/CreateEvent';
 import Chat from './pages/Chat';
 import './App.css';
 
@@ -42,6 +43,7 @@ function App() {
                         <Route path="/project/:id" element={<ProjectDetail />} />
                         <Route path="/events" element={<Events />} />
                         <Route path="/discover-events" element={<DiscoverEvents />} />
+                        <Route path="/create-event" element={<CreateEvent />} />
                         <Route path="/chat" element={<Chat />} />
                         <Route path="/chat/project/:projectId" element={<Chat />} />
                         <Route path="/chat/friend/:friendId" element={<Chat />} />

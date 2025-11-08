@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -235,8 +236,15 @@ const Events = () => {
   return (
     <div className="events">
       <div className="events-header">
-        <h1>Discover Events</h1>
-        <p>Find exciting events happening around campus</p>
+        <div>
+          <h1>Discover Events</h1>
+          <p>Find exciting events happening around campus</p>
+        </div>
+        {userData?.role === 'admin' && (
+          <Link to="/create-event" className="create-event-btn">
+            <FiTag /> Create Event
+          </Link>
+        )}
       </div>
 
       {/* Search Bar */}

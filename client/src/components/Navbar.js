@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../config/api';
-import { FiSearch, FiHome, FiCompass, FiCalendar, FiMessageCircle, FiUser, FiUsers, FiBell } from 'react-icons/fi';
+import { FiSearch, FiHome, FiCompass, FiCalendar, FiMessageCircle, FiUser, FiUsers, FiBell, FiPlus } from 'react-icons/fi';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -69,6 +69,11 @@ const Navbar = () => {
           <Link to="/events" className="nav-link">
             <FiCalendar />
           </Link>
+          {userData?.role === 'admin' && (
+            <Link to="/create-event" className="nav-link" title="Create Event">
+              <FiPlus />
+            </Link>
+          )}
           <Link to="/users" className="nav-link profile-link" title="Discover People">
             <FiUsers />
             {friendRequestCount > 0 && (

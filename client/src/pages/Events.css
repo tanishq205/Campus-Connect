@@ -9,6 +9,39 @@
 .events-header {
   margin-bottom: 40px;
   text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.events-header > div {
+  flex: 1;
+  text-align: center;
+}
+
+.create-event-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+}
+
+.create-event-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 6px 12px -1px rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px);
 }
 
 .events-header h1 {
@@ -711,6 +744,20 @@
 
   .curated-section-header h2 {
     font-size: 24px;
+  }
+
+  .events-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .events-header > div {
+    width: 100%;
+  }
+
+  .create-event-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
