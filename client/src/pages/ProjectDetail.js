@@ -197,7 +197,12 @@ const ProjectDetail = () => {
           <h3>Team Members ({project.members.length})</h3>
           <div className="members-list">
             {project.members.map((member, index) => (
-              <div key={index} className="member-item">
+              <div 
+                key={index} 
+                className="member-item"
+                onClick={() => navigate(`/profile/${member.user?._id}`)}
+                style={{ cursor: 'pointer' }}
+              >
                 {member.user?.profilePicture ? (
                   <img src={member.user.profilePicture} alt={member.user.name} />
                 ) : (
@@ -205,7 +210,7 @@ const ProjectDetail = () => {
                     {member.user?.name?.charAt(0) || 'U'}
                   </div>
                 )}
-                <span>{member.user?.name}</span>
+                <span style={{ color: '#0095f6' }}>{member.user?.name}</span>
               </div>
             ))}
           </div>

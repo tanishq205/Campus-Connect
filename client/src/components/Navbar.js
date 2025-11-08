@@ -1,18 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FiSearch, FiHome, FiCompass, FiCalendar, FiMessageCircle, FiUser, FiUsers } from 'react-icons/fi';
+import api from '../config/api';
+import { FiSearch, FiHome, FiCompass, FiCalendar, FiMessageCircle, FiUser, FiUsers, FiBell } from 'react-icons/fi';
 import './Navbar.css';
 
 const Navbar = () => {
   const { userData, signOut } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/explore?search=${searchQuery}`);
+    }
+  };
+
+  useEffect(() => {
+    if (userData?._id) {
+      fetchFriendRequestCount();
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchFriendRequestCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userData]);
+
+  const fetchFriendRequestCount = async () => {
+    if (!userData?._id) return;
+    try {
+      const response = await api.get(`/users/${userData._id}/friend-requests`);
+      setFriendRequestCount(response.data?.length || 0);
+    } catch (error) {
+      console.error('Error fetching friend requests:', error);
     }
   };
 
@@ -48,8 +69,11 @@ const Navbar = () => {
           <Link to="/events" className="nav-link">
             <FiCalendar />
           </Link>
-          <Link to="/users" className="nav-link" title="Discover People">
+          <Link to="/users" className="nav-link profile-link" title="Discover People">
             <FiUsers />
+            {friendRequestCount > 0 && (
+              <span className="notification-badge">{friendRequestCount}</span>
+            )}
           </Link>
           <Link to="/chat" className="nav-link">
             <FiMessageCircle />

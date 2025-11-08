@@ -94,6 +94,7 @@ const Profile = () => {
     }
   };
 
+
   if (loading) {
     return <div className="loading">Loading...</div>;
   }

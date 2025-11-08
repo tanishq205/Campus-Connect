@@ -1,15 +1,17 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { FiHeart, FiBookmark, FiUsers } from 'react-icons/fi';
 import './ProjectCard.css';
 
 const ProjectCard = ({ project }) => {
+  const navigate = useNavigate();
+
   const handleCreatorClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (project.creator?._id) {
-      window.open(`/profile/${project.creator._id}`, '_blank');
+      navigate(`/profile/${project.creator._id}`);
     }
   };
 
