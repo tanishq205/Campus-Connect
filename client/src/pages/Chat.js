@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { io } from 'socket.io-client';
 import api from '../config/api';
-import { FiSend, FiUser } from 'react-icons/fi';
+import { FiSend, FiUser, FiWifi, FiWifiOff, FiRefreshCw } from 'react-icons/fi';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import './Chat.css';
@@ -18,9 +18,11 @@ const Chat = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [roomId, setRoomId] = useState(null);
   const [currentRoomId, setCurrentRoomId] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'connecting', 'connected', 'disconnected', 'error'
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const roomIdRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
 
   // Fetch friends list
   useEffect(() => {
@@ -66,6 +68,11 @@ const Chat = () => {
     const socketURL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
     console.log('🔌 Initializing socket connection:', socketURL);
     console.log('   Environment:', process.env.NODE_ENV || 'development');
+    console.log('   User ID:', userData._id);
+    
+    // Reset connection status
+    setConnectionStatus('connecting');
+    reconnectAttemptsRef.current = 0;
     
     const newSocket = io(socketURL, {
       transports: ['polling', 'websocket'], // Try polling first for better compatibility with proxies
@@ -73,10 +80,11 @@ const Chat = () => {
       rememberUpgrade: true,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 10000, // Increased max delay
       reconnectionAttempts: Infinity,
-      timeout: 20000,
+      timeout: 30000, // Increased timeout for slower connections
       forceNew: false,
+      autoConnect: true,
       query: {
         userId: userData._id
       },
@@ -86,29 +94,83 @@ const Chat = () => {
 
     newSocket.on('connect', () => {
       console.log('✅ Socket connected:', newSocket.id);
+      console.log('   Transport:', newSocket.io.engine.transport.name);
       setSocket(newSocket);
       socketRef.current = newSocket;
+      setConnectionStatus('connected');
+      reconnectAttemptsRef.current = 0; // Reset on successful connection
+      
+      // Clear any error toasts
+      toast.dismiss();
+      toast.success('Connected to chat server');
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('❌ Socket disconnected');
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ Socket disconnected. Reason:', reason);
+      setConnectionStatus('disconnected');
+      
+      if (reason === 'io server disconnect') {
+        // Server disconnected the socket, need to manually reconnect
+        console.log('🔄 Server disconnected, attempting to reconnect...');
+        newSocket.connect();
+      } else if (reason === 'io client disconnect') {
+        // Client disconnected, don't reconnect
+        console.log('🛑 Client disconnected');
+      } else {
+        // Network error, will auto-reconnect
+        console.log('🔄 Network error, will auto-reconnect...');
+        setConnectionStatus('connecting');
+      }
     });
 
     newSocket.on('connect_error', (error) => {
+      reconnectAttemptsRef.current += 1;
       console.error('❌ Socket connection error:', error);
       console.error('   Error type:', error.type);
       console.error('   Error message:', error.message);
+      console.error('   Error description:', error.description);
       console.error('   Socket URL:', socketURL);
-      console.error('   Attempting to reconnect...');
+      console.error('   Reconnect attempt:', reconnectAttemptsRef.current);
+      console.error('   Socket connected:', newSocket.connected);
+      console.error('   Socket ID:', newSocket.id);
       
-      // Show a more helpful error message
-      if (error.message && (error.message.includes('CORS') || error.message.includes('Not allowed'))) {
-        toast.error('CORS error: Check server configuration');
-      } else if (error.message && error.message.includes('timeout')) {
-        toast.error('Connection timeout. Retrying...');
-      } else {
-        toast.error('Failed to connect to chat server. Retrying...');
+      setConnectionStatus('error');
+      
+      // Show a more helpful error message (only on first few attempts to avoid spam)
+      if (reconnectAttemptsRef.current <= 3) {
+        if (error.message && (error.message.includes('CORS') || error.message.includes('Not allowed'))) {
+          toast.error('CORS error: Check server configuration', { id: 'socket-error' });
+        } else if (error.message && error.message.includes('timeout')) {
+          toast.error('Connection timeout. Retrying...', { id: 'socket-error' });
+        } else if (error.message && error.message.includes('xhr poll error')) {
+          toast.error('Network error. Check your connection and retry.', { id: 'socket-error' });
+        } else {
+          toast.error(`Failed to connect (attempt ${reconnectAttemptsRef.current}). Retrying...`, { id: 'socket-error' });
+        }
       }
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log('✅ Socket reconnected after', attemptNumber, 'attempts');
+      setConnectionStatus('connected');
+      reconnectAttemptsRef.current = 0;
+      toast.success('Reconnected to chat server');
+    });
+
+    newSocket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('🔄 Reconnection attempt', attemptNumber);
+      setConnectionStatus('connecting');
+    });
+
+    newSocket.on('reconnect_error', (error) => {
+      console.error('❌ Reconnection error:', error);
+      setConnectionStatus('error');
+    });
+
+    newSocket.on('reconnect_failed', () => {
+      console.error('❌ Reconnection failed after all attempts');
+      setConnectionStatus('error');
+      toast.error('Failed to reconnect. Please refresh the page.', { duration: 5000 });
     });
 
     newSocket.on('receive-message', (data) => {
@@ -373,6 +435,37 @@ const Chat = () => {
                       <h2>{selectedFriend.name}</h2>
                       <p>{selectedFriend.college}</p>
                     </div>
+                  </div>
+                  <div className="connection-status">
+                    {connectionStatus === 'connected' && (
+                      <span className="status-connected" title="Connected">
+                        <FiWifi /> Connected
+                      </span>
+                    )}
+                    {connectionStatus === 'connecting' && (
+                      <span className="status-connecting" title="Connecting...">
+                        <FiRefreshCw className="spinning" /> Connecting...
+                      </span>
+                    )}
+                    {(connectionStatus === 'error' || connectionStatus === 'disconnected') && (
+                      <span className="status-error" title="Disconnected">
+                        <FiWifiOff /> Disconnected
+                        {socket && (
+                          <button
+                            onClick={() => {
+                              if (socket) {
+                                socket.connect();
+                                setConnectionStatus('connecting');
+                              }
+                            }}
+                            className="retry-button"
+                            title="Retry connection"
+                          >
+                            <FiRefreshCw />
+                          </button>
+                        )}
+                      </span>
+                    )}
                   </div>
                 </div>
 
