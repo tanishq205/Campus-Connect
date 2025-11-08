@@ -4,34 +4,32 @@ const dotenv = require('dotenv');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
-// Middleware
+// CORS MUST come first
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Serve static files (uploaded images)
+// Body parser middleware - MUST come before routes
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// Routes - MUST come after middleware
 app.use('/api/auth', authRoutes);
 
-// Health check route
 app.get('/', (req, res) => {
   res.json({ message: 'Campus Connect API is running!' });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -9,20 +9,15 @@ const generateUsername = (name, collegeEmail) => {
   return `${namePart}${randomNum}`;
 };
 
-// Register user (same as before)
+// Register user
 exports.register = async (req, res) => {
   try {
-    const { name, collegeName, collegeEmail, password, branch, github, linkedin, portfolio, bio } = req.body;
+    const { name, collegeName, collegeEmail, branch, github, linkedin, portfolio, bio } = req.body;
     const profileImage = req.file ? req.file.filename : null;
 
     // Validation
-    if (!name || !collegeName || !collegeEmail || !password) {
-      return res.status(400).json({ error: 'Name, college name, email, and password are required' });
-    }
-
-    // Password length validation
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    if (!name || !collegeName || !collegeEmail) {
+      return res.status(400).json({ error: 'Name, college name, and email are required' });
     }
 
     // Check if email already exists
@@ -40,8 +35,9 @@ exports.register = async (req, res) => {
       [userExists] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Create default password from email prefix
+    const defaultPassword = collegeEmail.split('@')[0];
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     // Insert user into database
     const [result] = await db.query(
@@ -53,7 +49,8 @@ exports.register = async (req, res) => {
     res.status(201).json({ 
       message: 'User registered successfully',
       username,
-      userId: result.insertId
+      userId: result.insertId,
+      defaultPassword: defaultPassword  // Send this once so user knows their password
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -61,19 +58,25 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user - UPDATED to accept username OR email
+// Login user
+// Login user - UPDATED with debugging
 exports.login = async (req, res) => {
   try {
+    // ADD THIS DEBUG LINE
+    console.log('Login request body:', req.body);
+    console.log('Headers:', req.headers);
+    
     const { usernameOrEmail, password } = req.body;
 
+    // Check if fields are missing
     if (!usernameOrEmail || !password) {
+      console.log('Missing fields - usernameOrEmail:', usernameOrEmail, 'password:', password ? 'exists' : 'missing');
       return res.status(400).json({ error: 'Username/Email and password are required' });
     }
 
     // Check if input is email or username
     const isEmail = usernameOrEmail.includes('@');
     
-    // Query database for user by username OR email
     let query, params;
     if (isEmail) {
       query = 'SELECT * FROM users WHERE college_email = ?';
@@ -91,14 +94,12 @@ exports.login = async (req, res) => {
 
     const user = users[0];
 
-    // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid username/email or password' });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, username: user.username }, 
       process.env.JWT_SECRET || 'your_jwt_secret_key_here', 

@@ -14,10 +14,22 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Debug: Log what we're sending
+    console.log('Sending login data:', credentials);
+
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', credentials);
+      const response = await axios.post(
+        'http://localhost:5000/api/auth/login',
+        credentials,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
       
-      // Store token and user info
+      console.log('Login response:', response.data);
+      
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userId', response.data.userId);
       localStorage.setItem('username', response.data.username);
@@ -27,6 +39,7 @@ const Login = () => {
       window.location.href = '/dashboard';
     } catch (error) {
       console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
       alert(error.response?.data?.error || 'Login failed. Check your credentials.');
     } finally {
       setLoading(false);
