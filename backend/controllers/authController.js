@@ -12,12 +12,17 @@ const generateUsername = (name, collegeEmail) => {
 // Register user
 exports.register = async (req, res) => {
   try {
-    const { name, collegeName, collegeEmail, branch, github, linkedin, portfolio, bio } = req.body;
+    const { name, collegeName, collegeEmail, password, branch, github, linkedin, portfolio, bio } = req.body;
     const profileImage = req.file ? req.file.filename : null;
 
     // Validation
-    if (!name || !collegeName || !collegeEmail) {
-      return res.status(400).json({ error: 'Name, college name, and email are required' });
+    if (!name || !collegeName || !collegeEmail || !password) {
+      return res.status(400).json({ error: 'Name, college name, email, and password are required' });
+    }
+
+    // Password length validation
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
     // Check if email already exists
@@ -35,9 +40,8 @@ exports.register = async (req, res) => {
       [userExists] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
     }
 
-    // Create default password from email prefix
-    const defaultPassword = collegeEmail.split('@')[0];
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert user into database
     const [result] = await db.query(
@@ -49,8 +53,7 @@ exports.register = async (req, res) => {
     res.status(201).json({ 
       message: 'User registered successfully',
       username,
-      userId: result.insertId,
-      defaultPassword: defaultPassword  // Send this once so user knows their password
+      userId: result.insertId
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -58,7 +61,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// Login user
+// Login user (same as before)
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -67,21 +70,18 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    // Find user
     const [users] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
     if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     const user = users[0];
-
-    // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
+    
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, username: user.username }, 
       process.env.JWT_SECRET || 'your_jwt_secret_key_here', 
