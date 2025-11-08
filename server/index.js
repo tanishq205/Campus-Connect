@@ -11,24 +11,78 @@ const server = http.createServer(app);
 // Configure CORS for Express
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) {
+      console.log('⚠️  Request with no origin - allowing');
+      return callback(null, true);
+    }
     
     const allowedOrigins = [
       process.env.CLIENT_URL,
       "http://localhost:3000",
-      "http://localhost:3001"
+      "http://localhost:3001",
+      "https://localhost:3000",
+      "https://localhost:3001"
     ].filter(Boolean);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    // Log for debugging
+    console.log('🌐 CORS check - Origin:', origin);
+    console.log('🌐 CORS check - Allowed origins:', allowedOrigins);
+    console.log('🌐 CORS check - NODE_ENV:', process.env.NODE_ENV);
+    
+    // In development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Development mode - allowing origin');
+      return callback(null, true);
+    }
+    
+    // If CLIENT_URL is not set, log warning but allow (for debugging)
+    if (!process.env.CLIENT_URL) {
+      console.warn('⚠️  WARNING: CLIENT_URL not set in environment variables!');
+      console.warn('⚠️  Allowing origin for now, but please set CLIENT_URL in Render Dashboard');
+      console.warn('⚠️  Origin:', origin);
+      return callback(null, true);
+    }
+    
+    // Check if origin matches any allowed origin (exact match or hostname match)
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (!allowed) return false;
+      
+      // Exact match
+      if (origin === allowed) {
+        console.log('✅ Exact match found:', allowed);
+        return true;
+      }
+      
+      // Hostname match (for cases where protocol differs or trailing slash)
+      try {
+        const originUrl = new URL(origin);
+        const allowedUrl = new URL(allowed);
+        if (originUrl.hostname === allowedUrl.hostname) {
+          console.log('✅ Hostname match found:', allowedUrl.hostname);
+          return true;
+        }
+      } catch (e) {
+        // Invalid URL, skip
+      }
+      
+      return false;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.error('❌ CORS blocked - Origin not allowed:', origin);
+      console.error('   Allowed origins:', allowedOrigins);
+      console.error('   CLIENT_URL:', process.env.CLIENT_URL);
+      console.error('   Please check your CLIENT_URL environment variable in Render Dashboard');
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Content-Type", "Authorization"]
 };
 
 // Middleware
@@ -39,17 +93,67 @@ const io = socketIo(server, {
   cors: {
     origin: function (origin, callback) {
       // Allow requests with no origin
-      if (!origin) return callback(null, true);
+      if (!origin) {
+        console.log('⚠️  Socket.io request with no origin - allowing');
+        return callback(null, true);
+      }
       
       const allowedOrigins = [
         process.env.CLIENT_URL,
         "http://localhost:3000",
-        "http://localhost:3001"
+        "http://localhost:3001",
+        "https://localhost:3000",
+        "https://localhost:3001"
       ].filter(Boolean);
       
-      if (allowedOrigins.some(allowed => origin.includes(new URL(allowed).hostname)) || process.env.NODE_ENV !== 'production') {
+      console.log('🔌 Socket.io CORS check - Origin:', origin);
+      console.log('🔌 Socket.io CORS check - Allowed origins:', allowedOrigins);
+      
+      // In development, allow all origins
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('✅ Socket.io - Development mode - allowing origin');
+        return callback(null, true);
+      }
+      
+      // If CLIENT_URL is not set, log warning but allow (for debugging)
+      if (!process.env.CLIENT_URL) {
+        console.warn('⚠️  WARNING: CLIENT_URL not set for Socket.io!');
+        console.warn('⚠️  Allowing origin for now, but please set CLIENT_URL in Render Dashboard');
+        console.warn('⚠️  Origin:', origin);
+        return callback(null, true);
+      }
+      
+      // Check if origin matches any allowed origin
+      const isAllowed = allowedOrigins.some(allowed => {
+        if (!allowed) return false;
+        
+        // Exact match
+        if (origin === allowed) {
+          console.log('✅ Socket.io - Exact match found:', allowed);
+          return true;
+        }
+        
+        // Hostname match
+        try {
+          const originUrl = new URL(origin);
+          const allowedUrl = new URL(allowed);
+          if (originUrl.hostname === allowedUrl.hostname) {
+            console.log('✅ Socket.io - Hostname match found:', allowedUrl.hostname);
+            return true;
+          }
+        } catch (e) {
+          // Invalid URL, skip
+        }
+        
+        return false;
+      });
+      
+      if (isAllowed) {
         callback(null, true);
       } else {
+        console.error('❌ Socket.io CORS blocked - Origin not allowed:', origin);
+        console.error('   Allowed origins:', allowedOrigins);
+        console.error('   CLIENT_URL:', process.env.CLIENT_URL);
         callback(new Error('Not allowed by CORS'));
       }
     },
