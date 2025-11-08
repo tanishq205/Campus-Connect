@@ -253,20 +253,35 @@ const Chat = () => {
               // Handle both populated and non-populated member objects
               let memberId = null;
               
+              // Try different ways to extract member ID
               if (member.user) {
                 // Could be populated (member.user._id) or just ID (member.user)
-                memberId = member.user._id || member.user;
+                if (typeof member.user === 'object' && member.user._id) {
+                  memberId = member.user._id;
+                } else if (typeof member.user === 'string') {
+                  memberId = member.user;
+                } else if (member.user.toString) {
+                  memberId = member.user;
+                }
               } else if (member._id) {
                 // Sometimes member might be directly the user ID
                 memberId = member._id;
+              } else if (typeof member === 'string') {
+                // Member might be a direct string ID
+                memberId = member;
               }
               
               if (memberId) {
                 const memberIdStr = memberId.toString();
-                projectMembers.add(memberIdStr);
-                console.log(`   Added member ${index + 1}:`, memberIdStr);
+                // Only add if it's a valid ObjectId-like string
+                if (memberIdStr && memberIdStr.length > 0) {
+                  projectMembers.add(memberIdStr);
+                  console.log(`   Added member ${index + 1}:`, memberIdStr);
+                } else {
+                  console.warn(`   Skipped member ${index + 1} - invalid ID format:`, memberIdStr);
+                }
               } else {
-                console.warn(`   Skipped member ${index + 1} - no valid ID:`, member);
+                console.warn(`   Skipped member ${index + 1} - no valid ID found:`, member);
               }
             });
           }
@@ -282,6 +297,7 @@ const Chat = () => {
               const creatorId = (project.creator._id || project.creator).toString();
               if (!members.includes(creatorId)) {
                 members.push(creatorId);
+                console.log('   Added creator as fallback:', creatorId);
               }
             }
           }
@@ -310,15 +326,48 @@ const Chat = () => {
         console.log('📋 Creating channel with members:', validMembers.length);
         console.log('   Member IDs:', validMembers);
         
+        // Create channel with initial config
         const newChannel = streamClient.channel(channelType, channelId, {
           name: channelName,
-          members: validMembers,
         });
 
-        // Watch the channel (this subscribes to real-time updates)
+        // Watch the channel (this subscribes to real-time updates and creates it if it doesn't exist)
         try {
           await newChannel.watch();
           console.log('✅ Channel watched successfully');
+          
+          // For team channels, explicitly add all members after watching
+          // This ensures all members are properly added to the channel
+          if (channelType === 'team' && validMembers.length > 0) {
+            try {
+              console.log('👥 Adding members to team channel...');
+              // Add all members at once - Stream Chat's addMembers accepts an array
+              await newChannel.addMembers(validMembers);
+              console.log(`✅ Added ${validMembers.length} members to channel`);
+            } catch (addMembersError) {
+              // If some members are already in channel, try adding them individually
+              if (addMembersError.message?.includes('already') || addMembersError.code === 4) {
+                console.log('⚠️  Some members may already be in channel, attempting individual adds...');
+                // Try adding members individually to handle partial failures
+                for (const memberId of validMembers) {
+                  try {
+                    await newChannel.addMembers([memberId]);
+                    console.log(`   ✅ Added member: ${memberId}`);
+                  } catch (addError) {
+                    // If member is already in channel, that's okay
+                    if (addError.message?.includes('already') || addError.code === 4) {
+                      console.log(`   ℹ️  Member ${memberId} already in channel`);
+                    } else {
+                      console.warn(`   ⚠️  Failed to add member ${memberId}:`, addError.message);
+                    }
+                  }
+                }
+              } else {
+                console.warn('⚠️  Error adding members to channel:', addMembersError);
+                // Don't fail the whole setup if adding members fails - channel might already have them
+              }
+            }
+          }
         } catch (watchError) {
           console.error('❌ Error watching channel:', watchError);
           console.error('   Channel ID:', channelId);
