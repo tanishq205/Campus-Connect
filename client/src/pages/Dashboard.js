@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import ProjectCard from '../components/ProjectCard';
 import CreateProjectModal from '../components/CreateProjectModal';
 import { FiPlus } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const { userData } = useAuth();
+  const { requireVerification } = useEmailVerification();
   const [projects, setProjects] = useState([]);
   const [recommendedProjects, setRecommendedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleCreateClick = () => {
+    if (requireVerification('create projects')) {
+      setShowCreateModal(true);
+    }
+  };
 
   useEffect(() => {
     fetchProjects();
@@ -56,7 +65,7 @@ const Dashboard = () => {
     <div className="dashboard">
       <div className="dashboard-header">
         <h1>Dashboard</h1>
-        <button className="create-project-btn" onClick={() => setShowCreateModal(true)}>
+        <button className="create-project-btn" onClick={handleCreateClick}>
           <FiPlus /> Create Project
         </button>
       </div>

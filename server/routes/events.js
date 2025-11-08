@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
 const { requireAdmin } = require('../middleware/auth');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 
-// Create event (Admin only)
-router.post('/', requireAdmin, async (req, res) => {
+// Create event (Admin only, requires email verification)
+router.post('/', requireAdmin, requireEmailVerification, async (req, res) => {
   try {
     const event = new Event(req.body);
     await event.save();

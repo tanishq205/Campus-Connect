@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import { 
   FiMessageSquare, 
@@ -21,9 +22,16 @@ import './Discussions.css';
 
 const Discussions = () => {
   const { userData } = useAuth();
+  const { requireVerification } = useEmailVerification();
   const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleCreateClick = () => {
+    if (requireVerification('start discussions')) {
+      setShowCreateModal(true);
+    }
+  };
   const [filters, setFilters] = useState({
     category: 'all',
     search: '',
@@ -139,7 +147,7 @@ const Discussions = () => {
         {userData && (
           <button 
             className="create-thread-btn"
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleCreateClick}
           >
             <FiPlus /> Start Discussion
           </button>
@@ -286,7 +294,7 @@ const Discussions = () => {
           {userData && (
             <button 
               className="create-thread-btn"
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleCreateClick}
             >
               <FiPlus /> Start Discussion
             </button>

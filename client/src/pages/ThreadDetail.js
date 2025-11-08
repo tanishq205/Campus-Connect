@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import { 
   FiThumbsUp, 
@@ -20,6 +21,7 @@ import './ThreadDetail.css';
 const ThreadDetail = () => {
   const { id } = useParams();
   const { userData } = useAuth();
+  const { requireVerification } = useEmailVerification();
   const navigate = useNavigate();
   const [discussion, setDiscussion] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,6 +104,10 @@ const ThreadDetail = () => {
   const handleAddComment = async (e) => {
     e.preventDefault();
     
+    if (!requireVerification('add comments')) {
+      return;
+    }
+    
     if (!commentContent.trim()) {
       toast.error('Comment cannot be empty');
       return;
@@ -128,6 +134,10 @@ const ThreadDetail = () => {
   };
 
   const handleAddReply = async (commentId) => {
+    if (!requireVerification('reply to comments')) {
+      return;
+    }
+    
     const content = replyContent[commentId];
     
     if (!content?.trim()) {

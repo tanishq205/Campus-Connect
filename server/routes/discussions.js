@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Discussion = require('../models/Discussion');
 const { requireAuth } = require('../middleware/auth');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 
 // Get all discussions with filters
 router.get('/', async (req, res) => {
@@ -81,8 +82,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create discussion (requires auth)
-router.post('/', requireAuth, async (req, res) => {
+// Create discussion (requires auth and email verification)
+router.post('/', requireAuth, requireEmailVerification, async (req, res) => {
   try {
     const { title, content, category, tags } = req.body;
     const userId = req.body.userId;
@@ -199,8 +200,8 @@ router.post('/:id/upvote', requireAuth, async (req, res) => {
   }
 });
 
-// Add comment to discussion
-router.post('/:id/comments', requireAuth, async (req, res) => {
+// Add comment to discussion (requires email verification)
+router.post('/:id/comments', requireAuth, requireEmailVerification, async (req, res) => {
   try {
     const { content } = req.body;
     const userId = req.body.userId;
@@ -238,8 +239,8 @@ router.post('/:id/comments', requireAuth, async (req, res) => {
   }
 });
 
-// Reply to comment
-router.post('/:id/comments/:commentId/replies', requireAuth, async (req, res) => {
+// Reply to comment (requires email verification)
+router.post('/:id/comments/:commentId/replies', requireAuth, requireEmailVerification, async (req, res) => {
   try {
     const { content } = req.body;
     const userId = req.body.userId;

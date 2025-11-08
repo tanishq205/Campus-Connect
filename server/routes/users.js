@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 
 // Get user profile
 router.get('/:id', async (req, res) => {
@@ -35,57 +36,53 @@ router.get('/uid/:uid', async (req, res) => {
   }
 });
 
-// Update user profile
+// Update user profile (requires email verification, except for emailVerified field)
 router.put('/:id', async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true, runValidators: true }
-    );
-    if (!user) {
+    const { emailVerified, ...updateData } = req.body;
+    const userId = req.body.userId || req.params.id;
+    
+    // Check if user exists and get current verification status
+    const currentUser = await User.findById(req.params.id);
+    if (!currentUser) {
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    // If only updating emailVerified, allow it (for syncing from Firebase)
+    if (Object.keys(updateData).length === 0 && emailVerified !== undefined) {
+      currentUser.emailVerified = emailVerified;
+      await currentUser.save();
+      return res.json(currentUser);
+    }
+    
+    // For other updates, require email verification
+    if (!currentUser.emailVerified) {
+      return res.status(403).json({ 
+        error: 'Email verification required. Please verify your email address to update your profile.' 
+      });
+    }
+    
+    // Update user
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { ...updateData, ...(emailVerified !== undefined && { emailVerified }) } },
+      { new: true, runValidators: true }
+    );
+    
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Search users
-router.get('/search/:query', async (req, res) => {
+// Get user's friend requests
+router.get('/:id/friend-requests', async (req, res) => {
   try {
-    const query = req.params.query;
-    const users = await User.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { college: { $regex: query, $options: 'i' } },
-        { skills: { $in: [new RegExp(query, 'i')] } }
-      ]
-    }).limit(20);
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get recommended users (based on skills/interests)
-router.get('/recommendations/:userId', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    const recommendations = await User.find({
-      _id: { $ne: user._id },
-      $or: [
-        { skills: { $in: user.skills } },
-        { interests: { $in: user.interests } }
-      ]
-    }).limit(10);
-
-    res.json(recommendations);
+    res.json(user.friendRequests || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -95,41 +92,35 @@ router.get('/recommendations/:userId', async (req, res) => {
 router.post('/:id/friend-request', async (req, res) => {
   try {
     const { fromUserId } = req.body;
-    const toUserId = req.params.id;
-    
-    if (fromUserId === toUserId) {
-      return res.status(400).json({ error: 'Cannot send friend request to yourself' });
-    }
-    
-    const toUser = await User.findById(toUserId);
+    const targetUser = await User.findById(req.params.id);
     const fromUser = await User.findById(fromUserId);
-    
-    if (!toUser || !fromUser) {
+
+    if (!targetUser || !fromUser) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
     // Check if already friends
-    const toUserFriends = toUser.friends.map(f => f.toString());
-    const fromUserFriends = fromUser.friends.map(f => f.toString());
-    if (toUserFriends.includes(fromUserId.toString()) || fromUserFriends.includes(toUserId.toString())) {
+    if (targetUser.friends.includes(fromUserId)) {
       return res.status(400).json({ error: 'Already friends' });
     }
-    
+
     // Check if request already exists
-    const existingRequest = toUser.friendRequests.find(
-      req => req.from.toString() === fromUserId && req.status === 'pending'
+    const existingRequest = targetUser.friendRequests.find(
+      req => req.from.toString() === fromUserId
     );
-    
+
     if (existingRequest) {
       return res.status(400).json({ error: 'Friend request already sent' });
     }
-    
-    toUser.friendRequests.push({ from: fromUserId, status: 'pending' });
-    await toUser.save();
-    
+
+    targetUser.friendRequests.push({
+      from: fromUserId,
+      status: 'pending'
+    });
+
+    await targetUser.save();
     res.json({ message: 'Friend request sent' });
   } catch (error) {
-    console.error('Error sending friend request:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -138,81 +129,38 @@ router.post('/:id/friend-request', async (req, res) => {
 router.post('/:id/friend-request/:requestId', async (req, res) => {
   try {
     const { action } = req.body; // 'accept' or 'reject'
-    const userId = req.params.id;
-    const requestId = req.params.requestId;
-    
-    const user = await User.findById(userId);
-    if (!user) {
+    const targetUser = await User.findById(req.params.id);
+
+    if (!targetUser) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
-    const requestIndex = user.friendRequests.findIndex(
-      req => req._id.toString() === requestId
-    );
-    
-    if (requestIndex === -1) {
+
+    const request = targetUser.friendRequests.id(req.params.requestId);
+    if (!request) {
       return res.status(404).json({ error: 'Friend request not found' });
     }
-    
-    const request = user.friendRequests[requestIndex];
-    
+
     if (action === 'accept') {
-      // Add to both users' friends list
-      const userFriends = user.friends.map(f => f.toString());
-      if (!userFriends.includes(request.from.toString())) {
-        user.friends.push(request.from);
+      // Add to friends list
+      if (!targetUser.friends.includes(request.from)) {
+        targetUser.friends.push(request.from);
       }
-      
-      const fromUser = await User.findById(request.from);
-      if (fromUser) {
-        const fromUserFriends = fromUser.friends.map(f => f.toString());
-        if (!fromUserFriends.includes(userId.toString())) {
-          fromUser.friends.push(userId);
-          await fromUser.save();
-        }
+      // Add target user to requester's friends list
+      const requester = await User.findById(request.from);
+      if (requester && !requester.friends.includes(req.params.id)) {
+        requester.friends.push(req.params.id);
+        await requester.save();
       }
-      
-      request.status = 'accepted';
-    } else if (action === 'reject') {
-      request.status = 'rejected';
     }
-    
-    await user.save();
+
+    // Remove the request
+    request.remove();
+    await targetUser.save();
+
     res.json({ message: `Friend request ${action}ed` });
-  } catch (error) {
-    console.error('Error handling friend request:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get friends
-router.get('/:id/friends', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .populate('friends', 'name profilePicture college');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user.friends);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get friend requests
-router.get('/:id/friend-requests', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .populate('friendRequests.from', 'name profilePicture college');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const pendingRequests = user.friendRequests.filter(req => req.status === 'pending');
-    res.json(pendingRequests);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 module.exports = router;
-

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import api from '../config/api';
 
@@ -23,17 +23,23 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         setCurrentUser(user);
         try {
-          // Verify user with backend
+          // Verify user with backend and sync email verification status
           const response = await api.post('/auth/verify', {
             uid: user.uid,
             email: user.email,
             name: user.displayName || user.email?.split('@')[0],
+            emailVerified: user.emailVerified
           });
-          setUserData(response.data.user);
+          
+          // Update backend with current Firebase email verification status
+          const userData = response.data.user;
+          // The verify endpoint already updates emailVerified, so we just use the response
+          setUserData({ ...userData, emailVerified: user.emailVerified });
+          
           // Refresh user data to get updated info
-          if (response.data.user?._id) {
-            const updatedUser = await api.get(`/users/${response.data.user._id}`);
-            setUserData(updatedUser.data);
+          if (userData?._id) {
+            const updatedUser = await api.get(`/users/${userData._id}`);
+            setUserData({ ...updatedUser.data, emailVerified: user.emailVerified });
           }
         } catch (error) {
           console.error('Error verifying user:', error);
@@ -47,6 +53,36 @@ export const AuthProvider = ({ children }) => {
 
     return unsubscribe;
   }, []);
+
+  // Periodically check email verification status
+  useEffect(() => {
+    if (!currentUser || currentUser.emailVerified) return;
+
+    const checkInterval = setInterval(async () => {
+      try {
+        await currentUser.reload();
+        if (currentUser.emailVerified) {
+          // User verified their email, refresh data
+          await refreshUserData();
+        }
+      } catch (error) {
+        console.error('Error checking verification status:', error);
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(checkInterval);
+  }, [currentUser, refreshUserData]);
+
+  const sendVerificationEmail = async () => {
+    if (!currentUser) return;
+    try {
+      await sendEmailVerification(currentUser);
+      return true;
+    } catch (error) {
+      console.error('Error sending verification email:', error);
+      throw error;
+    }
+  };
 
   const signOut = async () => {
     try {
@@ -74,7 +110,9 @@ export const AuthProvider = ({ children }) => {
     userData,
     signOut,
     refreshUserData,
+    sendVerificationEmail,
     loading,
+    isEmailVerified: currentUser?.emailVerified || userData?.emailVerified || false,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

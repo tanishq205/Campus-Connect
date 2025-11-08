@@ -3,9 +3,10 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const User = require('../models/User');
+const { requireEmailVerification } = require('../middleware/emailVerification');
 
-// Create a new project
-router.post('/', async (req, res) => {
+// Create a new project (requires email verification)
+router.post('/', requireEmailVerification, async (req, res) => {
   try {
     if (!req.body.creator) {
       return res.status(400).json({ error: 'Creator ID is required' });

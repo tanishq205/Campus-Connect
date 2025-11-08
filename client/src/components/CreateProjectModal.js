@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import toast from 'react-hot-toast';
 import { FiX } from 'react-icons/fi';
@@ -7,6 +8,7 @@ import './CreateProjectModal.css';
 
 const CreateProjectModal = ({ onClose, onSuccess }) => {
   const { userData } = useAuth();
+  const { requireVerification } = useEmailVerification();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -15,12 +17,22 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!requireVerification('create projects')) {
+      onClose();
+    }
+  }, []);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!requireVerification('create projects')) {
+      return;
+    }
     
     if (!userData || !userData._id) {
       toast.error('User data not loaded. Please refresh the page.');

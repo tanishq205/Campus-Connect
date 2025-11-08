@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import EmailVerificationBanner from './components/EmailVerificationBanner';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -37,6 +38,7 @@ function App() {
                   <div className="app-body">
                     <Sidebar />
                     <div className="app-content">
+                      <EmailVerificationBanner />
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/explore" element={<Explore />} />

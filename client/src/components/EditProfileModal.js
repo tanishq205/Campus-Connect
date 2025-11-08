@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import toast from 'react-hot-toast';
 import { FiX } from 'react-icons/fi';
 import './CreateProjectModal.css';
 
 const EditProfileModal = ({ userData, onClose, onSuccess }) => {
+  const { requireVerification } = useEmailVerification();
   const [formData, setFormData] = useState({
     name: userData.name || '',
     college: userData.college || '',
@@ -25,6 +27,11 @@ const EditProfileModal = ({ userData, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!requireVerification('edit your profile')) {
+      return;
+    }
+    
     setLoading(true);
 
     try {

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import { FiX, FiTag } from 'react-icons/fi';
 import toast from 'react-hot-toast';
@@ -7,7 +8,14 @@ import './CreateThreadModal.css';
 
 const CreateThreadModal = ({ onClose, onSuccess }) => {
   const { userData } = useAuth();
+  const { requireVerification } = useEmailVerification();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!requireVerification('create discussions')) {
+      onClose();
+    }
+  }, []);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -48,6 +56,10 @@ const CreateThreadModal = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!requireVerification('create discussions')) {
+      return;
+    }
     
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error('Please fill in all required fields');

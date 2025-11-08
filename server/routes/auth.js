@@ -7,7 +7,7 @@ const { requireAdmin } = require('../middleware/auth');
 // Verify Firebase token and create/update user
 router.post('/verify', async (req, res) => {
   try {
-    const { uid, email, name, college } = req.body;
+    const { uid, email, name, college, emailVerified } = req.body;
     
     if (!uid || !email || !name) {
       return res.status(400).json({ error: 'Missing required fields: uid, email, name' });
@@ -30,7 +30,8 @@ router.post('/verify', async (req, res) => {
         college: college || 'Not specified',
         skills: [],
         interests: [],
-        role: 'user' // Default role
+        role: 'user', // Default role
+        emailVerified: emailVerified || false
       });
       await user.save();
     } else {
@@ -38,6 +39,10 @@ router.post('/verify', async (req, res) => {
       if (email) user.email = email;
       if (name) user.name = name;
       if (college) user.college = college;
+      // Update email verification status if provided
+      if (emailVerified !== undefined) {
+        user.emailVerified = emailVerified;
+      }
       await user.save();
     }
     

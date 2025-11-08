@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import api from '../config/api';
 import { 
   FiCalendar, 
@@ -17,8 +18,15 @@ import './CreateEvent.css';
 
 const CreateEvent = () => {
   const { userData } = useAuth();
+  const { requireVerification } = useEmailVerification();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!requireVerification('create events')) {
+      navigate('/events');
+    }
+  }, []);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -93,6 +101,11 @@ const CreateEvent = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!requireVerification('create events')) {
+      return;
+    }
+    
     setLoading(true);
 
     try {
