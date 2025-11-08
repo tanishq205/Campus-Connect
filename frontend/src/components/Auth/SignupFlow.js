@@ -8,6 +8,8 @@ const SignupFlow = () => {
     name: '',
     collegeName: '',
     collegeEmail: '',
+    password: '',
+    confirmPassword: '',
     branch: '',
     profileImage: null,
     github: '',
@@ -15,6 +17,8 @@ const SignupFlow = () => {
     portfolio: '',
     bio: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -34,7 +38,7 @@ const SignupFlow = () => {
     try {
       const formDataToSend = new FormData();
       Object.keys(formData).forEach(key => {
-        if (formData[key]) {
+        if (formData[key] && key !== 'confirmPassword') {
           formDataToSend.append(key, formData[key]);
         }
       });
@@ -59,7 +63,17 @@ const SignupFlow = () => {
           <div className="progress" style={{ width: `${(step / 4) * 100}%` }}></div>
         </div>
         
-        {step === 1 && <StepOne formData={formData} updateField={updateField} nextStep={nextStep} />}
+        {step === 1 && (
+          <StepOne 
+            formData={formData} 
+            updateField={updateField} 
+            nextStep={nextStep}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            showConfirmPassword={showConfirmPassword}
+            setShowConfirmPassword={setShowConfirmPassword}
+          />
+        )}
         {step === 2 && <StepTwo formData={formData} updateField={updateField} nextStep={nextStep} prevStep={prevStep} />}
         {step === 3 && <StepThree formData={formData} updateField={updateField} handleImageUpload={handleImageUpload} nextStep={nextStep} prevStep={prevStep} />}
         {step === 4 && <StepFour formData={formData} updateField={updateField} handleSubmit={handleSubmit} prevStep={prevStep} />}
@@ -68,15 +82,23 @@ const SignupFlow = () => {
   );
 };
 
-// Step 1 - Basic Info
-const StepOne = ({ formData, updateField, nextStep }) => {
+// Step 1 - Basic Info with Password
+const StepOne = ({ formData, updateField, nextStep, showPassword, setShowPassword, showConfirmPassword, setShowConfirmPassword }) => {
   const validateStep = () => {
-    if (!formData.name || !formData.collegeName || !formData.collegeEmail) {
+    if (!formData.name || !formData.collegeName || !formData.collegeEmail || !formData.password || !formData.confirmPassword) {
       alert('Please fill all required fields');
       return false;
     }
     if (!formData.collegeEmail.includes('@')) {
       alert('Please enter a valid college email');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
       return false;
     }
     return true;
@@ -85,6 +107,23 @@ const StepOne = ({ formData, updateField, nextStep }) => {
   const handleNext = () => {
     if (validateStep()) nextStep();
   };
+
+  const getPasswordStrength = (password) => {
+    if (!password) return { strength: 0, label: '', color: '#ddd' };
+    
+    let strength = 0;
+    if (password.length >= 6) strength += 25;
+    if (password.length >= 8) strength += 15;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 20;
+    if (/[0-9]/.test(password)) strength += 20;
+    if (/[^a-zA-Z0-9]/.test(password)) strength += 20;
+    
+    if (strength < 40) return { strength, label: 'Weak', color: '#ff4444' };
+    if (strength < 70) return { strength, label: 'Fair', color: '#ffbb33' };
+    return { strength, label: 'Strong', color: '#00C851' };
+  };
+
+  const passwordStrength = getPasswordStrength(formData.password);
 
   return (
     <div className="step-content">
@@ -110,6 +149,56 @@ const StepOne = ({ formData, updateField, nextStep }) => {
         onChange={(e) => updateField('collegeEmail', e.target.value)}
         required
       />
+      
+      <div className="password-field">
+        <div className="password-input-wrapper">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password (min. 6 characters)"
+            value={formData.password}
+            onChange={(e) => updateField('password', e.target.value)}
+            required
+          />
+          <button 
+            type="button"
+            className="toggle-password"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? '👁️' : '👁️‍🗨️'}
+          </button>
+        </div>
+        {formData.password && (
+          <div className="password-strength">
+            <div className="strength-bar">
+              <div 
+                className="strength-fill" 
+                style={{ width: `${passwordStrength.strength}%`, backgroundColor: passwordStrength.color }}
+              ></div>
+            </div>
+            <span className="strength-label" style={{ color: passwordStrength.color }}>
+              {passwordStrength.label}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="password-input-wrapper">
+        <input
+          type={showConfirmPassword ? "text" : "password"}
+          placeholder="Confirm Password"
+          value={formData.confirmPassword}
+          onChange={(e) => updateField('confirmPassword', e.target.value)}
+          required
+        />
+        <button 
+          type="button"
+          className="toggle-password"
+          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+        >
+          {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+        </button>
+      </div>
+
       <button className="btn-primary" onClick={handleNext}>Next</button>
       <p className="login-link">Already have an account? <a href="/login">Log in</a></p>
     </div>
