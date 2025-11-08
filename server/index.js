@@ -17,16 +17,26 @@ const corsOptions = {
       return callback(null, true);
     }
     
+    // Normalize URLs (remove trailing slashes)
+    const normalizeUrl = (url) => {
+      if (!url) return url;
+      return url.replace(/\/+$/, ''); // Remove trailing slashes
+    };
+    
     const allowedOrigins = [
-      process.env.CLIENT_URL,
+      normalizeUrl(process.env.CLIENT_URL),
       "http://localhost:3000",
       "http://localhost:3001",
       "https://localhost:3000",
       "https://localhost:3001"
     ].filter(Boolean);
     
+    // Normalize the incoming origin for comparison
+    const normalizedOrigin = normalizeUrl(origin);
+    
     // Log for debugging
     console.log('🌐 CORS check - Origin:', origin);
+    console.log('🌐 CORS check - Normalized origin:', normalizedOrigin);
     console.log('🌐 CORS check - Allowed origins:', allowedOrigins);
     console.log('🌐 CORS check - NODE_ENV:', process.env.NODE_ENV);
     
@@ -48,16 +58,18 @@ const corsOptions = {
     const isAllowed = allowedOrigins.some(allowed => {
       if (!allowed) return false;
       
-      // Exact match
-      if (origin === allowed) {
-        console.log('✅ Exact match found:', allowed);
+      const normalizedAllowed = normalizeUrl(allowed);
+      
+      // Exact match (with normalized URLs)
+      if (normalizedOrigin === normalizedAllowed) {
+        console.log('✅ Exact match found:', normalizedAllowed);
         return true;
       }
       
-      // Hostname match (for cases where protocol differs or trailing slash)
+      // Hostname match (for cases where protocol differs)
       try {
-        const originUrl = new URL(origin);
-        const allowedUrl = new URL(allowed);
+        const originUrl = new URL(normalizedOrigin);
+        const allowedUrl = new URL(normalizedAllowed);
         if (originUrl.hostname === allowedUrl.hostname) {
           console.log('✅ Hostname match found:', allowedUrl.hostname);
           return true;
@@ -98,15 +110,25 @@ const io = socketIo(server, {
         return callback(null, true);
       }
       
+      // Normalize URLs (remove trailing slashes)
+      const normalizeUrl = (url) => {
+        if (!url) return url;
+        return url.replace(/\/+$/, ''); // Remove trailing slashes
+      };
+      
       const allowedOrigins = [
-        process.env.CLIENT_URL,
+        normalizeUrl(process.env.CLIENT_URL),
         "http://localhost:3000",
         "http://localhost:3001",
         "https://localhost:3000",
         "https://localhost:3001"
       ].filter(Boolean);
       
+      // Normalize the incoming origin for comparison
+      const normalizedOrigin = normalizeUrl(origin);
+      
       console.log('🔌 Socket.io CORS check - Origin:', origin);
+      console.log('🔌 Socket.io CORS check - Normalized origin:', normalizedOrigin);
       console.log('🔌 Socket.io CORS check - Allowed origins:', allowedOrigins);
       
       // In development, allow all origins
@@ -127,16 +149,18 @@ const io = socketIo(server, {
       const isAllowed = allowedOrigins.some(allowed => {
         if (!allowed) return false;
         
-        // Exact match
-        if (origin === allowed) {
-          console.log('✅ Socket.io - Exact match found:', allowed);
+        const normalizedAllowed = normalizeUrl(allowed);
+        
+        // Exact match (with normalized URLs)
+        if (normalizedOrigin === normalizedAllowed) {
+          console.log('✅ Socket.io - Exact match found:', normalizedAllowed);
           return true;
         }
         
         // Hostname match
         try {
-          const originUrl = new URL(origin);
-          const allowedUrl = new URL(allowed);
+          const originUrl = new URL(normalizedOrigin);
+          const allowedUrl = new URL(normalizedAllowed);
           if (originUrl.hostname === allowedUrl.hostname) {
             console.log('✅ Socket.io - Hostname match found:', allowedUrl.hostname);
             return true;
