@@ -209,10 +209,11 @@ const Chat = () => {
         
         // Get or create channel
         let members = [userData._id.toString()]; // Always include current user
+        let project = null; // Declare project in wider scope for use in channelName
         
         if (projectId || selectedProject?._id) {
           // For project chats, we need to fetch full project data if not available
-          let project = selectedProject;
+          project = selectedProject;
           
           // If we only have projectId from URL, fetch the project data
           if (projectId && !selectedProject) {
