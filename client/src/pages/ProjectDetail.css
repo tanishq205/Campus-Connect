@@ -20,6 +20,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  transition: opacity 0.2s;
+}
+
+.project-creator-info:hover {
+  opacity: 0.8;
 }
 
 .project-creator-info img,
@@ -43,8 +48,13 @@
 .project-creator-info h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #262626;
+  color: #0095f6;
   margin-bottom: 4px;
+  transition: color 0.2s;
+}
+
+.project-creator-info:hover h3 {
+  color: #0084d4;
 }
 
 .project-creator-info p {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FiSearch, FiHome, FiCompass, FiCalendar, FiMessageCircle, FiUser } from 'react-icons/fi';
+import { FiSearch, FiHome, FiCompass, FiCalendar, FiMessageCircle, FiUser, FiUsers } from 'react-icons/fi';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -32,7 +32,7 @@ const Navbar = () => {
           <FiSearch className="search-icon" />
           <input
             type="text"
-            placeholder="Search projects, events..."
+            placeholder="Search projects, events, people..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -47,6 +47,9 @@ const Navbar = () => {
           </Link>
           <Link to="/events" className="nav-link">
             <FiCalendar />
+          </Link>
+          <Link to="/users" className="nav-link" title="Discover People">
+            <FiUsers />
           </Link>
           <Link to="/chat" className="nav-link">
             <FiMessageCircle />

@@ -5,10 +5,18 @@ import { FiHeart, FiBookmark, FiUsers } from 'react-icons/fi';
 import './ProjectCard.css';
 
 const ProjectCard = ({ project }) => {
+  const handleCreatorClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (project.creator?._id) {
+      window.open(`/profile/${project.creator._id}`, '_blank');
+    }
+  };
+
   return (
     <Link to={`/project/${project._id}`} className="project-card">
       <div className="project-card-header">
-        <div className="project-creator">
+        <div className="project-creator" onClick={handleCreatorClick}>
           {project.creator?.profilePicture ? (
             <img src={project.creator.profilePicture} alt={project.creator.name} />
           ) : (
@@ -17,7 +25,7 @@ const ProjectCard = ({ project }) => {
             </div>
           )}
           <div>
-            <h4>{project.creator?.name || 'Unknown'}</h4>
+            <h4 className="creator-name-link">{project.creator?.name || 'Unknown'}</h4>
             <p>{project.creator?.college || ''}</p>
           </div>
         </div>

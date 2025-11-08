@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../config/api';
 import ProjectCard from '../components/ProjectCard';
 import EditProfileModal from '../components/EditProfileModal';
-import { FiEdit2, FiGithub, FiLinkedin, FiLink, FiUserPlus } from 'react-icons/fi';
+import { FiEdit2, FiGithub, FiLinkedin, FiLink, FiUserPlus, FiMessageCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './Profile.css';
 
 const Profile = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { userData: currentUserData } = useAuth();
   const [profileData, setProfileData] = useState(null);
   const [userProjects, setUserProjects] = useState([]);
@@ -152,12 +153,23 @@ const Profile = () => {
                   Request Sent
                 </button>
               ) : (
-                <button
-                  className="friend-btn"
-                  onClick={handleSendFriendRequest}
-                >
-                  <FiUserPlus /> Add Friend
-                </button>
+                <>
+                  <button
+                    className="friend-btn"
+                    onClick={handleSendFriendRequest}
+                  >
+                    <FiUserPlus /> Add Friend
+                  </button>
+                  {isFriend && (
+                    <button
+                      className="friend-btn"
+                      onClick={() => navigate(`/chat/friend/${id}`)}
+                      style={{ marginLeft: '10px', backgroundColor: '#4caf50' }}
+                    >
+                      <FiMessageCircle /> Message
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}

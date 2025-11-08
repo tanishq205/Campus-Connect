@@ -25,6 +25,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/comments', require('./routes/comments'));
+app.use('/api/chat', require('./routes/chat'));
 
 // Socket.io for real-time chat
 io.on('connection', (socket) => {
@@ -40,8 +41,37 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} left room ${roomId}`);
   });
 
-  socket.on('send-message', (data) => {
+  socket.on('send-message', async (data) => {
+    // Emit to the specific room
     io.to(data.roomId).emit('receive-message', data);
+    console.log(`Message sent to room: ${data.roomId}`);
+    
+    // Optionally save message to database/storage
+    // For now, we'll store in memory via the chat route
+    try {
+      const http = require('http');
+      const postData = JSON.stringify({
+        roomId: data.roomId,
+        message: data
+      });
+      
+      const options = {
+        hostname: 'localhost',
+        port: process.env.PORT || 5000,
+        path: '/api/chat/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+      
+      const req = http.request(options);
+      req.write(postData);
+      req.end();
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
   });
 
   socket.on('disconnect', () => {

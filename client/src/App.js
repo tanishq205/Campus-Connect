@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Explore from './pages/Explore';
+import Users from './pages/Users';
 import Profile from './pages/Profile';
 import ProjectDetail from './pages/ProjectDetail';
 import Events from './pages/Events';
@@ -35,10 +36,13 @@ function App() {
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/explore" element={<Explore />} />
+                        <Route path="/users" element={<Users />} />
                         <Route path="/profile/:id" element={<Profile />} />
                         <Route path="/project/:id" element={<ProjectDetail />} />
                         <Route path="/events" element={<Events />} />
-                        <Route path="/chat/:projectId?" element={<Chat />} />
+                        <Route path="/chat" element={<Chat />} />
+                        <Route path="/chat/project/:projectId" element={<Chat />} />
+                        <Route path="/chat/friend/:friendId" element={<Chat />} />
                         <Route path="*" element={<Navigate to="/" />} />
                       </Routes>
                     </div>

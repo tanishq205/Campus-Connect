@@ -23,6 +23,21 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.project-creator:hover {
+  opacity: 0.8;
+}
+
+.creator-name-link {
+  color: #262626;
+  transition: color 0.2s;
+}
+
+.project-creator:hover .creator-name-link {
+  color: #0095f6;
 }
 
 .project-creator img,

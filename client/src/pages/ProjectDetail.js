@@ -118,7 +118,11 @@ const ProjectDetail = () => {
   return (
     <div className="project-detail">
       <div className="project-detail-header">
-        <div className="project-creator-info">
+        <div 
+          className="project-creator-info"
+          onClick={() => navigate(`/profile/${project.creator?._id}`)}
+          style={{ cursor: 'pointer' }}
+        >
           {project.creator?.profilePicture ? (
             <img src={project.creator.profilePicture} alt={project.creator.name} />
           ) : (
@@ -127,7 +131,7 @@ const ProjectDetail = () => {
             </div>
           )}
           <div>
-            <h3>{project.creator?.name}</h3>
+            <h3 style={{ color: '#0095f6', transition: 'color 0.2s' }}>{project.creator?.name}</h3>
             <p>{project.creator?.college}</p>
           </div>
         </div>
@@ -179,7 +183,10 @@ const ProjectDetail = () => {
               <FiSend /> Request to Join
             </button>
           )}
-          {hasRequested && (
+          {isCreator && (
+            <span className="request-status">You are the creator</span>
+          )}
+          {hasRequested && !isCreator && (
             <span className="request-status">Request sent</span>
           )}
         </div>
