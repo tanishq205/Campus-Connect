@@ -107,12 +107,26 @@ const Chat = () => {
           console.log('📥 Received Firestore snapshot update');
           console.log('   Snapshot size:', snapshot.size);
           console.log('   Has pending writes:', snapshot.metadata.hasPendingWrites);
+          console.log('   From cache:', snapshot.metadata.fromCache);
+          
+          // If there are pending writes, it means messages are being synced
+          // This is normal - Firestore writes locally first, then syncs to server
+          if (snapshot.metadata.hasPendingWrites) {
+            console.log('⏳ Some writes are still pending (syncing to server)...');
+          }
           
           const newMessages = [];
           snapshot.forEach((doc) => {
             const data = doc.data();
+            
+            // Skip documents that are only in local cache and haven't been committed yet
+            // (unless they're from the current user - we want to show our own messages immediately)
+            const isPending = doc.metadata?.hasPendingWrites;
+            const isFromCurrentUser = data.userId === currentUser.uid;
+            
             // Use mongoUserId if available (for matching with userData), otherwise use userId (Firebase UID)
             const userId = data.mongoUserId || data.userId;
+            
             newMessages.push({
               id: doc.id,
               message: data.text || data.message || '',
@@ -126,6 +140,7 @@ const Chat = () => {
                 ? data.createdAt.toDate().toISOString()
                 : (data.timestamp || new Date().toISOString()),
               createdAt: data.createdAt,
+              isPending: isPending && !isFromCurrentUser, // Mark if pending (for UI indication if needed)
             });
           });
 
@@ -192,8 +207,29 @@ const Chat = () => {
     
     if (!newMessage.trim()) return;
 
+    // Detailed validation checks
+    console.log('\n🔍 === PRE-SEND VALIDATION ===');
+    console.log('roomId:', roomId);
+    console.log('userData:', userData ? 'Exists' : 'MISSING');
+    console.log('currentUser:', currentUser ? 'Exists' : 'MISSING');
+    console.log('currentUser.uid:', currentUser?.uid);
+    console.log('db:', db ? 'Initialized' : 'NOT INITIALIZED');
+    console.log('db type:', typeof db);
+    console.log('🔍 === END VALIDATION ===\n');
+
     if (!roomId || !userData || !currentUser) {
-      toast.error('Please select a friend to chat with');
+      const missing = [];
+      if (!roomId) missing.push('roomId');
+      if (!userData) missing.push('userData');
+      if (!currentUser) missing.push('currentUser');
+      toast.error(`Missing: ${missing.join(', ')}. Please select a friend to chat with.`);
+      console.error('❌ Cannot send message - missing:', missing);
+      return;
+    }
+
+    if (!db) {
+      toast.error('Firestore is not initialized. Please refresh the page.');
+      console.error('❌ Firestore db is not initialized');
       return;
     }
 
@@ -208,15 +244,14 @@ const Chat = () => {
       console.log('User Name:', userData.name);
       console.log('Message:', messageText);
       console.log('Firestore DB:', db ? 'Initialized' : 'NOT INITIALIZED');
-
-      // Verify Firestore is initialized
-      if (!db) {
-        throw new Error('Firestore is not initialized. Check Firebase configuration.');
-      }
+      console.log('Firestore DB type:', typeof db);
+      console.log('Firestore DB constructor:', db?.constructor?.name);
 
       // Create a reference to the messages collection
+      console.log('Creating messages collection reference...');
       const messagesRef = collection(db, 'chats', roomId, 'messages');
-      console.log('Messages collection reference created');
+      console.log('✅ Messages collection reference created:', messagesRef);
+      console.log('   Collection path: chats/' + roomId + '/messages');
 
       // Prepare message data
       const messageData = {
@@ -229,21 +264,38 @@ const Chat = () => {
         timestamp: new Date().toISOString(), // Fallback timestamp
       };
 
-      console.log('Message data prepared:', messageData);
+      console.log('Message data prepared:', {
+        ...messageData,
+        createdAt: '[serverTimestamp]' // Don't log the function
+      });
+      console.log('   userId (Firebase UID):', messageData.userId);
+      console.log('   mongoUserId:', messageData.mongoUserId);
+      console.log('   userName:', messageData.userName);
 
       // Add message to Firestore
+      console.log('Attempting to add document to Firestore...');
+      console.log('   This may take a moment...');
+      
       const docRef = await addDoc(messagesRef, messageData);
-      console.log('✅ Message sent to Firestore successfully');
+      
+      console.log('✅ Message added to Firestore (local write)');
       console.log('   Document ID:', docRef.id);
+      console.log('   Document path:', docRef.path);
+      console.log('   Note: Message is being synced to server...');
+      console.log('   It will appear for all users once sync completes');
       console.log('📤 === MESSAGE SENT ===\n');
       
       // Message will appear automatically via the real-time listener
+      // Firestore writes locally first (optimistic update), then syncs to server
+      // The listener will receive updates as the message syncs
       
     } catch (error) {
       console.error('\n❌ === ERROR SENDING MESSAGE ===');
+      console.error('Error name:', error.name);
       console.error('Error code:', error.code);
       console.error('Error message:', error.message);
-      console.error('Error details:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Full error object:', error);
       console.error('❌ === END ERROR ===\n');
       
       if (error.code === 'permission-denied') {
@@ -252,12 +304,27 @@ const Chat = () => {
         console.error('   1. Firestore is enabled in Firebase Console');
         console.error('   2. Security rules allow authenticated users to write');
         console.error('   3. userId in message matches currentUser.uid');
+        console.error('   4. Current user Firebase UID:', currentUser.uid);
+        console.error('   5. Message userId:', messageData?.userId);
       } else if (error.code === 'failed-precondition') {
         toast.error('Firestore index required. Check console for link to create index.');
-      } else if (error.message?.includes('not initialized')) {
+        if (error.message?.includes('index')) {
+          console.error('Index error details:', error.message);
+        }
+      } else if (error.message?.includes('not initialized') || error.message?.includes('Firestore')) {
         toast.error('Firestore not initialized. Check Firebase configuration.');
+        console.error('Firestore initialization check:');
+        console.error('   db exists:', !!db);
+        console.error('   db type:', typeof db);
+      } else if (error.name === 'FirebaseError') {
+        toast.error(`Firebase error: ${error.message}`);
+        console.error('This is a Firebase-specific error. Check:');
+        console.error('   1. Firestore is enabled in Firebase Console');
+        console.error('   2. Security rules are correct');
+        console.error('   3. Network connection is stable');
       } else {
         toast.error(`Failed to send message: ${error.message || 'Unknown error'}`);
+        console.error('Unexpected error type. Please check the console for details.');
       }
       setNewMessage(messageText); // Restore message on error
     }

@@ -4,13 +4,18 @@ This guide will help you set up Firebase Firestore for the chat feature.
 
 ## Step 1: Enable Firestore in Firebase Console
 
+**Detailed step-by-step instructions: See [ENABLE_FIRESTORE_STEP_BY_STEP.md](./ENABLE_FIRESTORE_STEP_BY_STEP.md)**
+
+Quick steps:
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Select your project
 3. Click on **"Firestore Database"** in the left sidebar
-4. Click **"Create database"**
-5. Choose **"Start in test mode"** (we'll add security rules later)
+4. If you see **"Create database"** button, click it
+5. Choose **"Start in test mode"** (we'll add security rules in Step 2)
 6. Select a location for your database (choose the closest to your users)
+   - Examples: `us-central`, `europe-west`, `asia-southeast1`
 7. Click **"Enable"**
+8. Wait 1-2 minutes for database to be created
 
 ## Step 2: Set Up Firestore Security Rules
 
