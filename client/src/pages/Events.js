@@ -1,49 +1,137 @@
 import React, { useState, useEffect } from 'react';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { FiCalendar, FiMapPin, FiExternalLink, FiUsers } from 'react-icons/fi';
+import { 
+  FiCalendar, 
+  FiMapPin, 
+  FiExternalLink, 
+  FiUsers, 
+  FiSearch,
+  FiFilter,
+  FiX,
+  FiTag
+} from 'react-icons/fi';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import './Events.css';
 
 const Events = () => {
   const { userData } = useAuth();
-  const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [availableDomains, setAvailableDomains] = useState([]);
+  const [availableLocations, setAvailableLocations] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     domain: '',
     location: '',
     search: '',
   });
 
+  // Fetch all events on mount
   useEffect(() => {
-    fetchEvents();
-  }, [filters]);
+    fetchAllEvents();
+  }, []);
 
-  const fetchEvents = async () => {
+  // Apply filters when filters or allEvents change
+  useEffect(() => {
+    applyFilters();
+  }, [filters, allEvents]);
+
+  const fetchAllEvents = async () => {
     try {
-      const params = new URLSearchParams();
-      if (filters.domain) params.append('domain', filters.domain);
-      if (filters.location) params.append('location', filters.location);
-      if (filters.search) params.append('search', filters.search);
-
-      const response = await api.get(`/events?${params.toString()}`);
-      setEvents(response.data);
+      setLoading(true);
+      const response = await api.get('/events');
+      const eventsData = response.data || [];
+      setAllEvents(eventsData);
+      
+      // Extract unique domains from all events
+      const domains = new Set();
+      const locations = new Set();
+      
+      eventsData.forEach(event => {
+        if (event.domain && Array.isArray(event.domain)) {
+          event.domain.forEach(domain => {
+            if (domain) domains.add(domain);
+          });
+        }
+        if (event.location) {
+          locations.add(event.location);
+        }
+      });
+      
+      setAvailableDomains(Array.from(domains).sort());
+      setAvailableLocations(Array.from(locations).sort());
     } catch (error) {
       console.error('Error fetching events:', error);
+      toast.error('Failed to load events');
     } finally {
       setLoading(false);
     }
   };
 
+  const applyFilters = () => {
+    let filtered = [...allEvents];
+
+    // Apply search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(
+        (event) =>
+          event.title?.toLowerCase().includes(searchLower) ||
+          event.description?.toLowerCase().includes(searchLower) ||
+          event.organizer?.toLowerCase().includes(searchLower) ||
+          event.location?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply domain filter
+    if (filters.domain) {
+      filtered = filtered.filter((event) =>
+        event.domain?.some((domain) => 
+          domain.toLowerCase() === filters.domain.toLowerCase()
+        )
+      );
+    }
+
+    // Apply location filter
+    if (filters.location) {
+      const locationLower = filters.location.toLowerCase();
+      filtered = filtered.filter((event) =>
+        event.location?.toLowerCase().includes(locationLower)
+      );
+    }
+
+    // Sort by date (upcoming first)
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA - dateB;
+    });
+
+    setFilteredEvents(filtered);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      domain: '',
+      location: '',
+      search: '',
+    });
+  };
+
   const handleJoinEvent = async (eventId) => {
-    if (!userData) return;
+    if (!userData) {
+      toast.error('Please login to join events');
+      return;
+    }
     try {
       await api.post(`/events/${eventId}/join`, { userId: userData._id });
       toast.success('Joined event successfully!');
-      fetchEvents();
+      fetchAllEvents();
     } catch (error) {
-      toast.error('Failed to join event');
+      toast.error(error.response?.data?.error || 'Failed to join event');
     }
   };
 
@@ -52,47 +140,120 @@ const Events = () => {
     try {
       await api.post(`/events/${eventId}/leave`, { userId: userData._id });
       toast.success('Left event');
-      fetchEvents();
+      fetchAllEvents();
     } catch (error) {
       toast.error('Failed to leave event');
     }
   };
 
   if (loading) {
-    return <div className="loading">Loading events...</div>;
+    return (
+      <div className="events">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading events...</p>
+        </div>
+      </div>
+    );
   }
+
+  const hasActiveFilters = filters.search || filters.domain || filters.location;
 
   return (
     <div className="events">
       <div className="events-header">
         <h1>Discover Events</h1>
+        <p>Find exciting events happening around campus</p>
       </div>
 
-      <div className="events-filters">
-        <input
-          type="text"
-          placeholder="Search events..."
-          value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Filter by domain (e.g., AI/ML, WebDev)"
-          value={filters.domain}
-          onChange={(e) => setFilters({ ...filters, domain: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Filter by location"
-          value={filters.location}
-          onChange={(e) => setFilters({ ...filters, location: e.target.value })}
-        />
+      {/* Search Bar */}
+      <div className="search-filter-bar">
+        <div className="search-box">
+          <FiSearch className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search events by title, description, organizer, or location..."
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          />
+        </div>
+        <button
+          className="filter-toggle-btn"
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <FiFilter />
+          Filters
+          {hasActiveFilters && (
+            <span className="filter-badge">
+              {[filters.domain, filters.location].filter(Boolean).length}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* Advanced Filters */}
+      {showFilters && (
+        <div className="advanced-filters">
+          <div className="filter-group">
+            <label>
+              <FiTag /> Domain
+            </label>
+            <select
+              value={filters.domain}
+              onChange={(e) => setFilters({ ...filters, domain: e.target.value })}
+            >
+              <option value="">All Domains</option>
+              {availableDomains.map((domain) => (
+                <option key={domain} value={domain}>
+                  {domain}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>
+              <FiMapPin /> Location
+            </label>
+            <input
+              type="text"
+              list="locations-list"
+              placeholder="Search by location..."
+              value={filters.location}
+              onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+            />
+            <datalist id="locations-list">
+              {availableLocations.map((location) => (
+                <option key={location} value={location} />
+              ))}
+            </datalist>
+          </div>
+
+          {hasActiveFilters && (
+            <button className="clear-filters-btn" onClick={clearFilters}>
+              <FiX /> Clear Filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Results Count */}
+      {!loading && (
+        <div className="results-count">
+          <p>
+            Showing <strong>{filteredEvents.length}</strong> of <strong>{allEvents.length}</strong> events
+            {hasActiveFilters && ' (filtered)'}
+          </p>
+        </div>
+      )}
 
       <div className="events-grid">
-        {events.map((event) => {
+        {filteredEvents.map((event) => {
           const isParticipant = event.participants?.some(
-            (p) => p._id === userData?._id
+            (p) => {
+              const participantId = typeof p === 'object' ? (p._id || p) : p;
+              return participantId?.toString() === userData?._id?.toString();
+            }
           );
           return (
             <div key={event._id} className="event-card">
@@ -103,12 +264,15 @@ const Events = () => {
               )}
               <div className="event-content">
                 <h3>{event.title}</h3>
+                {event.organizer && (
+                  <p className="event-organizer">by {event.organizer}</p>
+                )}
                 <p className="event-description">{event.description}</p>
 
                 <div className="event-details">
                   <div className="event-detail">
                     <FiCalendar />
-                    <span>{format(new Date(event.date), 'MMM dd, yyyy')}</span>
+                    <span>{format(new Date(event.date), 'MMM dd, yyyy • h:mm a')}</span>
                   </div>
                   <div className="event-detail">
                     <FiMapPin />
@@ -120,11 +284,13 @@ const Events = () => {
                   </div>
                 </div>
 
-                <div className="event-tags">
-                  {event.domain?.map((domain, index) => (
-                    <span key={index} className="event-tag">{domain}</span>
-                  ))}
-                </div>
+                {event.domain && event.domain.length > 0 && (
+                  <div className="event-tags">
+                    {event.domain.map((domain, index) => (
+                      <span key={index} className="event-tag">{domain}</span>
+                    ))}
+                  </div>
+                )}
 
                 <div className="event-actions">
                   {event.registrationLink && (
@@ -159,9 +325,20 @@ const Events = () => {
         })}
       </div>
 
-      {events.length === 0 && (
+      {!loading && filteredEvents.length === 0 && (
         <div className="empty-state">
-          <p>No events found. Try adjusting your filters.</p>
+          <FiCalendar size={64} />
+          <h3>No events found</h3>
+          <p>
+            {hasActiveFilters 
+              ? 'Try adjusting your search or filters to find more events.'
+              : 'No events are available at the moment. Check back later!'}
+          </p>
+          {hasActiveFilters && (
+            <button className="clear-filters-btn" onClick={clearFilters}>
+              Clear all filters
+            </button>
+          )}
         </div>
       )}
     </div>
