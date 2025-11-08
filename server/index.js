@@ -7,16 +7,190 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
+
+// Configure CORS for Express
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) {
+      console.log('⚠️  Request with no origin - allowing');
+      return callback(null, true);
+    }
+    
+    // Normalize URLs (remove trailing slashes)
+    const normalizeUrl = (url) => {
+      if (!url) return url;
+      return url.replace(/\/+$/, ''); // Remove trailing slashes
+    };
+    
+    const allowedOrigins = [
+      normalizeUrl(process.env.CLIENT_URL),
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://localhost:3000",
+      "https://localhost:3001"
+    ].filter(Boolean);
+    
+    // Normalize the incoming origin for comparison
+    const normalizedOrigin = normalizeUrl(origin);
+    
+    // Log for debugging
+    console.log('🌐 CORS check - Origin:', origin);
+    console.log('🌐 CORS check - Normalized origin:', normalizedOrigin);
+    console.log('🌐 CORS check - Allowed origins:', allowedOrigins);
+    console.log('🌐 CORS check - NODE_ENV:', process.env.NODE_ENV);
+    
+    // In development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('✅ Development mode - allowing origin');
+      return callback(null, true);
+    }
+    
+    // If CLIENT_URL is not set, log warning but allow (for debugging)
+    if (!process.env.CLIENT_URL) {
+      console.warn('⚠️  WARNING: CLIENT_URL not set in environment variables!');
+      console.warn('⚠️  Allowing origin for now, but please set CLIENT_URL in Render Dashboard');
+      console.warn('⚠️  Origin:', origin);
+      return callback(null, true);
+    }
+    
+    // Check if origin matches any allowed origin (exact match or hostname match)
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (!allowed) return false;
+      
+      const normalizedAllowed = normalizeUrl(allowed);
+      
+      // Exact match (with normalized URLs)
+      if (normalizedOrigin === normalizedAllowed) {
+        console.log('✅ Exact match found:', normalizedAllowed);
+        return true;
+      }
+      
+      // Hostname match (for cases where protocol differs)
+      try {
+        const originUrl = new URL(normalizedOrigin);
+        const allowedUrl = new URL(normalizedAllowed);
+        if (originUrl.hostname === allowedUrl.hostname) {
+          console.log('✅ Hostname match found:', allowedUrl.hostname);
+          return true;
+        }
+      } catch (e) {
+        // Invalid URL, skip
+      }
+      
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.error('❌ CORS blocked - Origin not allowed:', origin);
+      console.error('   Allowed origins:', allowedOrigins);
+      console.error('   CLIENT_URL:', process.env.CLIENT_URL);
+      console.error('   Please check your CLIENT_URL environment variable in Render Dashboard');
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Content-Type", "Authorization"]
+};
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
+
+// Configure Socket.io with better CORS and transport options for production
+const io = socketIo(server, {
+  cors: {
+    origin: function (origin, callback) {
+      // Allow requests with no origin
+      if (!origin) {
+        console.log('⚠️  Socket.io request with no origin - allowing');
+        return callback(null, true);
+      }
+      
+      // Normalize URLs (remove trailing slashes)
+      const normalizeUrl = (url) => {
+        if (!url) return url;
+        return url.replace(/\/+$/, ''); // Remove trailing slashes
+      };
+      
+      const allowedOrigins = [
+        normalizeUrl(process.env.CLIENT_URL),
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://localhost:3000",
+        "https://localhost:3001"
+      ].filter(Boolean);
+      
+      // Normalize the incoming origin for comparison
+      const normalizedOrigin = normalizeUrl(origin);
+      
+      console.log('🔌 Socket.io CORS check - Origin:', origin);
+      console.log('🔌 Socket.io CORS check - Normalized origin:', normalizedOrigin);
+      console.log('🔌 Socket.io CORS check - Allowed origins:', allowedOrigins);
+      
+      // In development, allow all origins
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('✅ Socket.io - Development mode - allowing origin');
+        return callback(null, true);
+      }
+      
+      // If CLIENT_URL is not set, log warning but allow (for debugging)
+      if (!process.env.CLIENT_URL) {
+        console.warn('⚠️  WARNING: CLIENT_URL not set for Socket.io!');
+        console.warn('⚠️  Allowing origin for now, but please set CLIENT_URL in Render Dashboard');
+        console.warn('⚠️  Origin:', origin);
+        return callback(null, true);
+      }
+      
+      // Check if origin matches any allowed origin
+      const isAllowed = allowedOrigins.some(allowed => {
+        if (!allowed) return false;
+        
+        const normalizedAllowed = normalizeUrl(allowed);
+        
+        // Exact match (with normalized URLs)
+        if (normalizedOrigin === normalizedAllowed) {
+          console.log('✅ Socket.io - Exact match found:', normalizedAllowed);
+          return true;
+        }
+        
+        // Hostname match
+        try {
+          const originUrl = new URL(normalizedOrigin);
+          const allowedUrl = new URL(normalizedAllowed);
+          if (originUrl.hostname === allowedUrl.hostname) {
+            console.log('✅ Socket.io - Hostname match found:', allowedUrl.hostname);
+            return true;
+          }
+        } catch (e) {
+          // Invalid URL, skip
+        }
+        
+        return false;
+      });
+      
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.error('❌ Socket.io CORS blocked - Origin not allowed:', origin);
+        console.error('   Allowed origins:', allowedOrigins);
+        console.error('   CLIENT_URL:', process.env.CLIENT_URL);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'], // Allow both transports
+  allowEIO3: true, // Allow Engine.IO v3 clients
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// Middleware (continued)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -27,6 +201,7 @@ app.use('/api/projects', require('./routes/projects'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/comments', require('./routes/comments'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/stream-chat', require('./routes/streamChat'));
 
 // Socket.io for real-time chat
 io.on('connection', (socket) => {
@@ -38,11 +213,17 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', async (roomId) => {
     try {
-      // Leave all other rooms first
+      if (!roomId) {
+        console.warn(`⚠️  Invalid roomId provided: ${roomId}`);
+        return;
+      }
+      
+      // Leave all other rooms first (except the socket's own room)
       const rooms = Array.from(socket.rooms);
       rooms.forEach(room => {
         if (room !== socket.id && room !== roomId) {
           socket.leave(room);
+          console.log(`🚪 User ${socket.id} left room: ${room}`);
         }
       });
       
@@ -52,15 +233,25 @@ io.on('connection', (socket) => {
       
       // Get all sockets in the room to verify
       const socketsInRoom = await io.in(roomId).fetchSockets();
-      console.log(`📊 Room ${roomId} now has ${socketsInRoom.length} user(s):`);
+      console.log(`📊 Room "${roomId}" now has ${socketsInRoom.length} user(s):`);
       socketsInRoom.forEach(s => {
         console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
       });
       
       // Notify client that room join was successful
-      socket.emit('room-joined', { roomId });
+      socket.emit('room-joined', { roomId, userCount: socketsInRoom.length });
+      
+      // Also notify other users in the room that someone joined
+      socket.to(roomId).emit('user-joined-room', { roomId, userId });
+      
+      // If this is a friend chat and there are now 2 users, notify both
+      if (roomId.startsWith('friend-') && socketsInRoom.length === 2) {
+        console.log('✅ Friend chat room is ready! Both users are connected.');
+        io.to(roomId).emit('friend-chat-ready', { roomId });
+      }
     } catch (error) {
-      console.error('Error joining room:', error);
+      console.error('❌ Error joining room:', error);
+      socket.emit('room-join-error', { error: 'Failed to join room' });
     }
   });
 
@@ -77,19 +268,7 @@ io.on('connection', (socket) => {
       console.log(`Message: ${data.message}`);
       console.log(`Socket: ${socket.id}`);
       
-      // Verify room exists and get all sockets in it
-      const socketsInRoom = await io.in(data.roomId).fetchSockets();
-      console.log(`👥 Users in room ${data.roomId}: ${socketsInRoom.length}`);
-      
-      if (socketsInRoom.length === 0) {
-        console.warn(`⚠️  WARNING: No users in room ${data.roomId}! Message might not be delivered.`);
-      } else {
-        socketsInRoom.forEach(s => {
-          console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
-        });
-      }
-      
-      // Save message to backend storage
+      // Save message to backend storage first
       const chatRoute = require('./routes/chat');
       const { messagesStore } = chatRoute;
       
@@ -101,12 +280,11 @@ io.on('connection', (socket) => {
       const messageToSave = {
         ...data,
         timestamp: data.timestamp || new Date().toISOString(),
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique ID for duplicate detection
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       };
       
       messages.push(messageToSave);
       
-      // Keep only last 100 messages per room
       if (messages.length > 100) {
         messages.shift();
       }
@@ -114,11 +292,32 @@ io.on('connection', (socket) => {
       messagesStore.set(data.roomId, messages);
       console.log(`💾 Message saved. Room now has ${messages.length} total messages`);
       
-      // Broadcast to ALL users in the room (including sender)
-      // This ensures everyone sees the message, including the sender
-      io.to(data.roomId).emit('receive-message', messageToSave);
-      console.log(`📢 Message broadcasted to ${socketsInRoom.length} user(s) in room ${data.roomId}`);
-      console.log(`✅ === MESSAGE SENT ===\n`);
+      // Get all sockets in the room BEFORE broadcasting
+      const socketsInRoom = await io.in(data.roomId).fetchSockets();
+      console.log(`👥 Users in room "${data.roomId}": ${socketsInRoom.length}`);
+      
+      if (socketsInRoom.length === 0) {
+        console.warn(`⚠️  WARNING: No users in room ${data.roomId}!`);
+        console.warn(`⚠️  This means the other user hasn't joined the room yet.`);
+        console.warn(`⚠️  Message saved but not delivered.`);
+        console.warn(`⚠️  Make sure both users are in the chat page and have joined the room.`);
+      } else {
+        console.log(`📋 Sockets in room:`);
+        socketsInRoom.forEach(s => {
+          console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
+        });
+        
+        // Broadcast to ALL users in the room (including sender)
+        console.log(`📢 Broadcasting message to room "${data.roomId}"...`);
+        io.to(data.roomId).emit('receive-message', messageToSave);
+        console.log(`✅ Message broadcasted to ${socketsInRoom.length} user(s)`);
+        
+        // Double-check: verify the room still has users
+        const verifySockets = await io.in(data.roomId).fetchSockets();
+        console.log(`🔍 Verification: Room now has ${verifySockets.length} user(s) after broadcast`);
+      }
+      
+      console.log(`✅ === MESSAGE PROCESSED ===\n`);
       
     } catch (error) {
       console.error('❌ Error in send-message handler:', error);
