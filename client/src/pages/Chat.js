@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { streamClient } from '../config/streamChat';
 import api from '../config/api';
-import { FiSend, FiUser, FiWifi, FiWifiOff } from 'react-icons/fi';
+import { FiSend, FiUser, FiWifi, FiWifiOff, FiArrowLeft } from 'react-icons/fi';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import './Chat.css';
@@ -253,6 +253,17 @@ const Chat = () => {
     // Channel will be set up automatically via useEffect
   };
 
+  const handleBackToChats = () => {
+    setSelectedFriend(null);
+    setChannel(null);
+    setMessages([]);
+    // Clean up channel reference
+    if (channelRef.current) {
+      channelRef.current.stopWatching();
+      channelRef.current = null;
+    }
+  };
+
   if (!channel && !projectId) {
     return (
       <div className="chat-container">
@@ -291,6 +302,13 @@ const Chat = () => {
             {selectedFriend ? (
               <>
                 <div className="chat-header">
+                  <button 
+                    className="back-button" 
+                    onClick={handleBackToChats}
+                    title="Back to all chats"
+                  >
+                    <FiArrowLeft />
+                  </button>
                   <div className="chat-header-user">
                     {selectedFriend.profilePicture ? (
                       <img src={selectedFriend.profilePicture} alt={selectedFriend.name} />
@@ -407,6 +425,15 @@ const Chat = () => {
   return (
     <div className="chat-container">
       <div className="chat-header">
+        {selectedFriend && (
+          <button 
+            className="back-button" 
+            onClick={handleBackToChats}
+            title="Back to all chats"
+          >
+            <FiArrowLeft />
+          </button>
+        )}
         <h2>Chat</h2>
         {projectId && <p>Project Chat Room</p>}
         {selectedFriend && (
