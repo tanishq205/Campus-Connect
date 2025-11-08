@@ -273,11 +273,21 @@ const Chat = () => {
       console.log('   userName:', messageData.userName);
 
       // Add message to Firestore
-      console.log('Attempting to add document to Firestore...');
+      console.log('⏳ Attempting to add document to Firestore...');
+      console.log('   Collection path:', 'chats/' + roomId + '/messages');
+      console.log('   Message text:', messageText);
       console.log('   This may take a moment...');
       
-      const docRef = await addDoc(messagesRef, messageData);
+      // Add timeout wrapper to detect hanging
+      const addDocPromise = addDoc(messagesRef, messageData);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('addDoc timed out after 10 seconds')), 10000)
+      );
       
+      console.log('   Waiting for addDoc to complete...');
+      const docRef = await Promise.race([addDocPromise, timeoutPromise]);
+      
+      console.log('✅ addDoc promise resolved!');
       console.log('✅ Message added to Firestore (local write)');
       console.log('   Document ID:', docRef.id);
       console.log('   Document path:', docRef.path);
@@ -296,6 +306,17 @@ const Chat = () => {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
       console.error('Full error object:', error);
+      
+      // Check if it's a timeout
+      if (error.message?.includes('timed out')) {
+        console.error('⚠️  addDoc is hanging - the promise is not resolving');
+        console.error('   This usually means:');
+        console.error('   1. Firestore security rules are blocking the write');
+        console.error('   2. Network connection issue');
+        console.error('   3. Firestore is not properly initialized');
+        console.error('   Check Network tab for failed requests to firestore.googleapis.com');
+      }
+      
       console.error('❌ === END ERROR ===\n');
       
       if (error.code === 'permission-denied') {
