@@ -21,6 +21,13 @@ const Users = () => {
     }
   }, [userData]);
 
+  // Refresh friend requests when tab changes to requests
+  useEffect(() => {
+    if (activeTab === 'requests' && userData?._id) {
+      fetchFriendRequests();
+    }
+  }, [activeTab, userData]);
+
   useEffect(() => {
     if (activeTab === 'discover') {
       if (searchQuery.trim()) {
@@ -82,13 +89,20 @@ const Users = () => {
         action: 'accept',
       });
       toast.success('Friend request accepted!');
-      fetchFriendRequests();
+      // Immediately remove from local state for instant UI update
+      setFriendRequests(prev => prev.filter(req => req._id !== requestId));
+      // Then refresh from server to ensure consistency
+      await fetchFriendRequests();
       // Refresh recommended users to update friends list
       if (activeTab === 'discover') {
         fetchRecommendedUsers();
       }
+      // Trigger a custom event to notify Navbar to refresh
+      window.dispatchEvent(new CustomEvent('friendRequestUpdated'));
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to accept request');
+      // Refresh on error to ensure state is correct
+      fetchFriendRequests();
     }
   };
 
@@ -99,9 +113,16 @@ const Users = () => {
         action: 'reject',
       });
       toast.success('Friend request rejected');
-      fetchFriendRequests();
+      // Immediately remove from local state for instant UI update
+      setFriendRequests(prev => prev.filter(req => req._id !== requestId));
+      // Then refresh from server to ensure consistency
+      await fetchFriendRequests();
+      // Trigger a custom event to notify Navbar to refresh
+      window.dispatchEvent(new CustomEvent('friendRequestUpdated'));
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to reject request');
+      // Refresh on error to ensure state is correct
+      fetchFriendRequests();
     }
   };
 

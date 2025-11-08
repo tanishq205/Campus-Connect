@@ -23,7 +23,17 @@ const Navbar = () => {
       fetchFriendRequestCount();
       // Refresh count every 30 seconds
       const interval = setInterval(fetchFriendRequestCount, 30000);
-      return () => clearInterval(interval);
+      
+      // Listen for friend request updates
+      const handleFriendRequestUpdate = () => {
+        fetchFriendRequestCount();
+      };
+      window.addEventListener('friendRequestUpdated', handleFriendRequestUpdate);
+      
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('friendRequestUpdated', handleFriendRequestUpdate);
+      };
     }
   }, [userData]);
 
