@@ -158,9 +158,13 @@ This guide will help you deploy your Campus Connect application on Render.
    - Make sure `CLIENT_URL` in backend matches your frontend URL
    - Check CORS configuration in `server/index.js`
 
-3. **"Socket connection failed"**:
-   - Verify `REACT_APP_SOCKET_URL` points to your backend URL
-   - Check if backend is running and accessible
+3. **"Socket connection failed"** or **"Failed to connect to chat server"**:
+   - Verify `REACT_APP_SOCKET_URL` points to your backend URL (without `/api`)
+   - Make sure `CLIENT_URL` in backend matches your frontend URL exactly
+   - Check Render logs for Socket.io connection errors
+   - Try using `https://` instead of `http://` in production
+   - Ensure both frontend and backend are on HTTPS in production
+   - Check if Render is blocking WebSocket connections (some free tiers have limitations)
 
 4. **"Firebase error"**:
    - Verify all Firebase environment variables are set

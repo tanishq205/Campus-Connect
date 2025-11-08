@@ -65,15 +65,23 @@ const Chat = () => {
 
     const socketURL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
     console.log('🔌 Initializing socket connection:', socketURL);
+    console.log('   Environment:', process.env.NODE_ENV || 'development');
     
     const newSocket = io(socketURL, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Try polling first for better compatibility with proxies
+      upgrade: true,
+      rememberUpgrade: true,
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      timeout: 20000,
+      forceNew: false,
       query: {
         userId: userData._id
-      }
+      },
+      // Add path if your server uses a custom path (default is /socket.io/)
+      // path: '/socket.io/'
     });
 
     newSocket.on('connect', () => {
@@ -88,7 +96,19 @@ const Chat = () => {
 
     newSocket.on('connect_error', (error) => {
       console.error('❌ Socket connection error:', error);
-      toast.error('Failed to connect to chat server');
+      console.error('   Error type:', error.type);
+      console.error('   Error message:', error.message);
+      console.error('   Socket URL:', socketURL);
+      console.error('   Attempting to reconnect...');
+      
+      // Show a more helpful error message
+      if (error.message && (error.message.includes('CORS') || error.message.includes('Not allowed'))) {
+        toast.error('CORS error: Check server configuration');
+      } else if (error.message && error.message.includes('timeout')) {
+        toast.error('Connection timeout. Retrying...');
+      } else {
+        toast.error('Failed to connect to chat server. Retrying...');
+      }
     });
 
     newSocket.on('receive-message', (data) => {
