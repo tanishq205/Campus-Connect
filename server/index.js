@@ -44,11 +44,9 @@ io.on('connection', (socket) => {
 
   socket.on('send-message', async (data) => {
     try {
-      // Emit to the specific room
-      io.to(data.roomId).emit('receive-message', data);
-      console.log(`Message sent to room: ${data.roomId} by ${data.user?.name}`);
+      console.log(`Received message from ${data.user?.name} for room: ${data.roomId}`);
       
-      // Save message to backend storage directly
+      // Save message to backend storage first
       const chatRoute = require('./routes/chat');
       const { messagesStore } = chatRoute;
       
@@ -57,10 +55,12 @@ io.on('connection', (socket) => {
       }
       
       const messages = messagesStore.get(data.roomId);
-      messages.push({
+      const messageToSave = {
         ...data,
         timestamp: data.timestamp || new Date().toISOString(),
-      });
+      };
+      
+      messages.push(messageToSave);
       
       // Keep only last 100 messages per room
       if (messages.length > 100) {
@@ -68,6 +68,12 @@ io.on('connection', (socket) => {
       }
       
       messagesStore.set(data.roomId, messages);
+      console.log(`Message saved to store. Room ${data.roomId} now has ${messages.length} messages`);
+      
+      // Emit to ALL users in the room (including sender) - this ensures everyone sees it
+      io.to(data.roomId).emit('receive-message', messageToSave);
+      console.log(`Message broadcasted to room: ${data.roomId} by ${data.user?.name}`);
+      
     } catch (error) {
       console.error('Error in send-message handler:', error);
     }

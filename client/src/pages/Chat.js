@@ -64,8 +64,11 @@ const Chat = () => {
     newSocket.on('connect', () => {
       console.log('Socket connected:', newSocket.id);
       newSocket.emit('join-room', roomId);
-      // Load previous messages after joining room
-      loadMessages(roomId);
+      console.log('Requested to join room:', roomId);
+      // Load previous messages after a short delay to ensure room join is processed
+      setTimeout(() => {
+        loadMessages(roomId);
+      }, 300);
     });
 
     newSocket.on('disconnect', () => {
@@ -82,12 +85,17 @@ const Chat = () => {
       if (data.roomId === roomId) {
         setMessages((prev) => {
           // Check if message already exists to prevent duplicates
-          const exists = prev.some(msg => 
-            msg.timestamp === data.timestamp && 
-            msg.user?._id === data.user?._id &&
-            msg.message === data.message
-          );
-          if (exists) return prev;
+          const exists = prev.some(msg => {
+            // More robust duplicate check
+            const sameUser = msg.user?._id === data.user?._id;
+            const sameMessage = msg.message === data.message;
+            const sameTime = Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 1000; // Within 1 second
+            return sameUser && sameMessage && sameTime;
+          });
+          if (exists) {
+            console.log('Duplicate message detected, skipping');
+            return prev;
+          }
           return [...prev, data];
         });
       }
@@ -141,6 +149,9 @@ const Chat = () => {
       return;
     }
 
+    const messageText = newMessage.trim();
+    setNewMessage(''); // Clear input immediately
+
     const messageData = {
       roomId,
       user: {
@@ -148,31 +159,25 @@ const Chat = () => {
         name: userData.name,
         profilePicture: userData.profilePicture,
       },
-      message: newMessage.trim(),
+      message: messageText,
       timestamp: new Date().toISOString(),
     };
 
     try {
-      // Emit message via socket
+      // Emit message via socket - this will broadcast to all users in the room
+      // The server will save it and broadcast it back to all users (including sender)
       socket.emit('send-message', messageData);
+      console.log('Message emitted to socket:', messageData);
       
-      // Also save to backend
-      try {
-        await api.post('/chat/messages', {
-          roomId,
-          message: messageData
-        });
-      } catch (error) {
-        console.error('Error saving message to backend:', error);
-        // Don't show error to user, message still sent via socket
-      }
+      // Don't add to local state here - let the socket 'receive-message' event handle it
+      // This prevents duplicates and ensures all users see the message
+      // The server will save the message and broadcast it back
       
-      // Add to local state immediately for instant feedback
-      setMessages((prev) => [...prev, messageData]);
-      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
+      // Restore message if sending failed
+      setNewMessage(messageText);
     }
   };
 
