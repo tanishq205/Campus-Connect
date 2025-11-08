@@ -137,11 +137,15 @@ const Chat = () => {
         // Load existing messages
         await loadMessages(newChannel);
 
+        console.log('✅ Channel setup complete, setting channel state');
         setChannel(newChannel);
         channelRef.current = newChannel;
+        console.log('✅ Channel state updated, input should be enabled now');
       } catch (error) {
         console.error('❌ Error setting up channel:', error);
+        console.error('   Error details:', error.message);
         setConnectionStatus('error');
+        setChannel(null); // Ensure channel is null on error
         toast.error('Failed to load chat. Please try again.');
       }
     };
@@ -353,7 +357,7 @@ const Chat = () => {
                 <form onSubmit={handleSendMessage} className="chat-input">
                   <input
                     type="text"
-                    placeholder="Type a message..."
+                    placeholder={connectionStatus === 'connecting' ? 'Connecting...' : channel ? 'Type a message...' : 'Loading chat...'}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     disabled={connectionStatus !== 'connected' || !channel}
@@ -361,6 +365,7 @@ const Chat = () => {
                   <button 
                     type="submit" 
                     disabled={connectionStatus !== 'connected' || !channel || !newMessage.trim()}
+                    title={!channel ? 'Chat is loading...' : connectionStatus !== 'connected' ? 'Connecting...' : 'Send message'}
                   >
                     <FiSend />
                   </button>
@@ -467,7 +472,7 @@ const Chat = () => {
       <form onSubmit={handleSendMessage} className="chat-input">
         <input
           type="text"
-          placeholder="Type a message..."
+          placeholder={connectionStatus === 'connecting' ? 'Connecting...' : channel ? 'Type a message...' : 'Loading chat...'}
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           disabled={connectionStatus !== 'connected' || !channel}
@@ -475,6 +480,7 @@ const Chat = () => {
         <button 
           type="submit" 
           disabled={connectionStatus !== 'connected' || !channel || !newMessage.trim()}
+          title={!channel ? 'Chat is loading...' : connectionStatus !== 'connected' ? 'Connecting...' : 'Send message'}
         >
           <FiSend />
         </button>
