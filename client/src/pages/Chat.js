@@ -211,29 +211,79 @@ const Chat = () => {
         let members = [userData._id.toString()]; // Always include current user
         
         if (projectId || selectedProject?._id) {
-          // For project chats, include creator and all members
-          const project = selectedProject || { _id: projectId };
+          // For project chats, we need to fetch full project data if not available
+          let project = selectedProject;
+          
+          // If we only have projectId from URL, fetch the project data
+          if (projectId && !selectedProject) {
+            try {
+              console.log('📥 Fetching project data for channel setup...');
+              const projectResponse = await api.get(`/projects/${projectId}`);
+              project = projectResponse.data;
+              console.log('✅ Project data fetched:', project.title);
+            } catch (error) {
+              console.error('❌ Failed to fetch project data:', error);
+              toast.error('Failed to load project. Please try again.');
+              return;
+            }
+          }
+          
+          if (!project) {
+            console.error('❌ No project data available');
+            toast.error('Project not found');
+            return;
+          }
+          
+          // Build members list
           const projectMembers = new Set([userData._id.toString()]);
           
           // Add creator
-          if (project.creator?._id) {
-            projectMembers.add(project.creator._id.toString());
-          } else if (project.creator) {
-            projectMembers.add(project.creator.toString());
+          if (project.creator) {
+            const creatorId = project.creator._id || project.creator;
+            if (creatorId) {
+              projectMembers.add(creatorId.toString());
+              console.log('   Added creator:', creatorId.toString());
+            }
           }
           
           // Add all members
           if (project.members && Array.isArray(project.members)) {
-            project.members.forEach(member => {
-              const memberId = member.user?._id || member.user;
+            project.members.forEach((member, index) => {
+              // Handle both populated and non-populated member objects
+              let memberId = null;
+              
+              if (member.user) {
+                // Could be populated (member.user._id) or just ID (member.user)
+                memberId = member.user._id || member.user;
+              } else if (member._id) {
+                // Sometimes member might be directly the user ID
+                memberId = member._id;
+              }
+              
               if (memberId) {
-                projectMembers.add(memberId.toString());
+                const memberIdStr = memberId.toString();
+                projectMembers.add(memberIdStr);
+                console.log(`   Added member ${index + 1}:`, memberIdStr);
+              } else {
+                console.warn(`   Skipped member ${index + 1} - no valid ID:`, member);
               }
             });
           }
           
           members = Array.from(projectMembers);
-          console.log('👥 Project channel members:', members);
+          console.log('👥 Project channel members (total):', members.length);
+          console.log('   Member IDs:', members);
+          
+          // Validate we have at least 2 members (Stream Chat requires at least 2 for team channels)
+          if (members.length < 2) {
+            console.warn('⚠️  Project has less than 2 members, adding creator as fallback');
+            if (project.creator) {
+              const creatorId = (project.creator._id || project.creator).toString();
+              if (!members.includes(creatorId)) {
+                members.push(creatorId);
+              }
+            }
+          }
         } else if (targetFriendId) {
           // For friend chats, add both users
           members = [userData._id.toString(), targetFriendId];
@@ -241,17 +291,48 @@ const Chat = () => {
         }
         
         const channelName = projectId || selectedProject?._id
-          ? (selectedProject?.title || `Project ${projectId || selectedProject?._id}`)
+          ? (selectedProject?.title || project?.title || `Project ${projectId || selectedProject?._id}`)
           : 'Direct Message';
+        
+        // Validate members array
+        if (!members || members.length === 0) {
+          throw new Error('No members found for channel');
+        }
+        
+        // Remove any duplicate or invalid member IDs
+        const validMembers = [...new Set(members.filter(id => id && id.toString().trim() !== ''))];
+        
+        if (validMembers.length === 0) {
+          throw new Error('No valid members found for channel');
+        }
+        
+        console.log('📋 Creating channel with members:', validMembers.length);
+        console.log('   Member IDs:', validMembers);
         
         const newChannel = streamClient.channel(channelType, channelId, {
           name: channelName,
-          members: members,
+          members: validMembers,
         });
 
         // Watch the channel (this subscribes to real-time updates)
-        await newChannel.watch();
-        console.log('✅ Channel watched successfully');
+        try {
+          await newChannel.watch();
+          console.log('✅ Channel watched successfully');
+        } catch (watchError) {
+          console.error('❌ Error watching channel:', watchError);
+          console.error('   Channel ID:', channelId);
+          console.error('   Channel type:', channelType);
+          console.error('   Members count:', validMembers.length);
+          console.error('   Members:', validMembers);
+          
+          // If watch fails, try to create the channel first
+          if (watchError.message?.includes('not found') || watchError.code === 'channel_not_found') {
+            console.log('🔄 Channel not found, attempting to create...');
+            // Channel will be created automatically when we watch, so this might be a permissions issue
+            throw new Error('Failed to access channel. Please check Stream Chat permissions.');
+          }
+          throw watchError;
+        }
 
         // Set up message listener
         newChannel.on('message.new', (event) => {
