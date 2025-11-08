@@ -24,6 +24,7 @@ const Chat = () => {
     if (userData?._id) {
       fetchFriends();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
 
   // Set room ID based on project or friend
@@ -62,13 +63,13 @@ const Chat = () => {
     });
 
     newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id);
+      console.log('✅ Socket connected:', newSocket.id);
+      console.log('📤 Joining room:', roomId);
       newSocket.emit('join-room', roomId);
-      console.log('Requested to join room:', roomId);
       // Load previous messages after a short delay to ensure room join is processed
       setTimeout(() => {
         loadMessages(roomId);
-      }, 300);
+      }, 500);
     });
 
     newSocket.on('disconnect', () => {
@@ -81,8 +82,12 @@ const Chat = () => {
     });
 
     newSocket.on('receive-message', (data) => {
-      console.log('Received message:', data);
+      console.log('📥 Received message event:', data);
+      console.log('Current roomId:', roomId);
+      console.log('Message roomId:', data.roomId);
+      
       if (data.roomId === roomId) {
+        console.log('✅ Room ID matches, adding message');
         setMessages((prev) => {
           // Check if message already exists to prevent duplicates
           const exists = prev.some(msg => {
@@ -93,11 +98,14 @@ const Chat = () => {
             return sameUser && sameMessage && sameTime;
           });
           if (exists) {
-            console.log('Duplicate message detected, skipping');
+            console.log('⚠️ Duplicate message detected, skipping');
             return prev;
           }
+          console.log('✅ Adding new message to state');
           return [...prev, data];
         });
+      } else {
+        console.log('❌ Room ID mismatch, ignoring message');
       }
     });
 
@@ -166,15 +174,23 @@ const Chat = () => {
     try {
       // Emit message via socket - this will broadcast to all users in the room
       // The server will save it and broadcast it back to all users (including sender)
+      console.log('📤 Sending message via socket:', {
+        roomId: messageData.roomId,
+        user: messageData.user?.name,
+        message: messageData.message,
+        socketId: socket.id,
+        connected: socket.connected
+      });
+      
       socket.emit('send-message', messageData);
-      console.log('Message emitted to socket:', messageData);
+      console.log('✅ Message emitted to socket');
       
       // Don't add to local state here - let the socket 'receive-message' event handle it
       // This prevents duplicates and ensures all users see the message
       // The server will save the message and broadcast it back
       
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ Error sending message:', error);
       toast.error('Failed to send message');
       // Restore message if sending failed
       setNewMessage(messageText);

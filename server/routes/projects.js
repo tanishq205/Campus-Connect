@@ -36,7 +36,8 @@ router.get('/', async (req, res) => {
   try {
     // Check MongoDB connection
     if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ error: 'Database not connected. Please try again in a moment.' });
+      console.warn('⚠️  Database not connected, but attempting operation anyway');
+      // Don't block - let it try and fail gracefully
     }
     
     const { tag, skill, search } = req.query;

@@ -35,6 +35,11 @@ io.on('connection', (socket) => {
   socket.on('join-room', (roomId) => {
     socket.join(roomId);
     console.log(`User ${socket.id} joined room ${roomId}`);
+    
+    // Get all sockets in the room to verify
+    io.in(roomId).fetchSockets().then(sockets => {
+      console.log(`Room ${roomId} now has ${sockets.length} user(s):`, sockets.map(s => s.id));
+    });
   });
 
   socket.on('leave-room', (roomId) => {
@@ -44,7 +49,17 @@ io.on('connection', (socket) => {
 
   socket.on('send-message', async (data) => {
     try {
-      console.log(`Received message from ${data.user?.name} for room: ${data.roomId}`);
+      console.log(`\n=== MESSAGE RECEIVED ===`);
+      console.log(`From: ${data.user?.name} (${data.user?._id})`);
+      console.log(`Room: ${data.roomId}`);
+      console.log(`Message: ${data.message}`);
+      
+      // Check how many users are in the room
+      const socketsInRoom = await io.in(data.roomId).fetchSockets();
+      console.log(`Users in room ${data.roomId}: ${socketsInRoom.length}`);
+      socketsInRoom.forEach(s => {
+        console.log(`  - Socket ID: ${s.id}`);
+      });
       
       // Save message to backend storage first
       const chatRoute = require('./routes/chat');
@@ -68,11 +83,12 @@ io.on('connection', (socket) => {
       }
       
       messagesStore.set(data.roomId, messages);
-      console.log(`Message saved to store. Room ${data.roomId} now has ${messages.length} messages`);
+      console.log(`Message saved. Room now has ${messages.length} total messages`);
       
       // Emit to ALL users in the room (including sender) - this ensures everyone sees it
       io.to(data.roomId).emit('receive-message', messageToSave);
-      console.log(`Message broadcasted to room: ${data.roomId} by ${data.user?.name}`);
+      console.log(`✅ Message broadcasted to ${socketsInRoom.length} user(s) in room ${data.roomId}`);
+      console.log(`=== END MESSAGE ===\n`);
       
     } catch (error) {
       console.error('Error in send-message handler:', error);
@@ -109,22 +125,25 @@ const connectDB = async () => {
     
     // For MongoDB Atlas, add SSL/TLS options
     if (isAtlas) {
-      // MongoDB Atlas requires TLS by default
-      // Don't set tls: true explicitly as it's handled by mongodb+srv://
-      // But we can add connection pool options
+      // Try to fix SSL/TLS issues by adding explicit TLS options
+      connectionOptions.tls = true;
+      connectionOptions.tlsAllowInvalidCertificates = false;
+      connectionOptions.tlsAllowInvalidHostnames = false;
       connectionOptions.retryWrites = true;
       connectionOptions.w = 'majority';
       
-      // Ensure connection string has proper parameters
+      // Check if connection string needs parameters
       if (!mongoURI.includes('retryWrites')) {
         const separator = mongoURI.includes('?') ? '&' : '?';
         const updatedURI = `${mongoURI}${separator}retryWrites=true&w=majority`;
-        // Use updated URI if it's different
         if (updatedURI !== mongoURI) {
-          console.log('⚠️  Adding retryWrites and w=majority to connection string');
+          console.log('⚠️  Note: Consider adding ?retryWrites=true&w=majority to your connection string');
         }
       }
     }
+    
+    // Try connecting with a shorter timeout for faster feedback
+    connectionOptions.serverSelectionTimeoutMS = 5000;
     
     await mongoose.connect(mongoURI, connectionOptions);
     
@@ -144,39 +163,49 @@ const connectDB = async () => {
     });
     
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
-    console.error('Full error:', error);
-    console.error('💡 Make sure:');
-    console.error('   1. MongoDB is running (if using localhost)');
-    console.error('   2. MONGODB_URI is set correctly in server/.env');
-    console.error('   3. Your IP is whitelisted in MongoDB Atlas (if using Atlas)');
-    console.error('   4. Your MongoDB Atlas connection string is correct');
-    console.error('   5. Your MongoDB version is compatible (Mongoose 8.x supports MongoDB 4.4+)');
-    console.error('   6. For Atlas SSL errors, try adding ?tls=true to your connection string');
-    console.error('   7. Check your network/firewall settings');
+    console.error('\n❌ MongoDB connection failed:', error.message);
     
-    // Don't exit immediately - allow retry
-    console.error('⚠️  Retrying connection in 5 seconds...');
+    // Check if it's an SSL error
+    if (error.message.includes('SSL') || error.message.includes('TLS') || error.code === 'ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR') {
+      console.error('\n🔧 SSL/TLS Error Detected - Possible Solutions:');
+      console.error('   1. Check your MongoDB Atlas connection string format');
+      console.error('   2. Ensure your IP is whitelisted in MongoDB Atlas');
+      console.error('   3. Try using a different network (VPN/firewall might be blocking)');
+      console.error('   4. Verify your MongoDB Atlas credentials are correct');
+      console.error('   5. Check if your MongoDB Atlas cluster is running');
+      console.error('\n💡 Connection string should look like:');
+      console.error('   mongodb+srv://username:password@cluster.mongodb.net/database?retryWrites=true&w=majority');
+    } else {
+      console.error('💡 Make sure:');
+      console.error('   1. MongoDB is running (if using localhost)');
+      console.error('   2. MONGODB_URI is set correctly in server/.env');
+      console.error('   3. Your IP is whitelisted in MongoDB Atlas (if using Atlas)');
+      console.error('   4. Your MongoDB Atlas connection string is correct');
+    }
+    
+    console.error('\n⚠️  Server is running but MongoDB is not connected.');
+    console.error('⚠️  Socket.io chat will work, but database features will fail.');
+    console.error('⚠️  Retrying MongoDB connection in 10 seconds...\n');
+    
+    // Retry with longer delay to avoid spam
     setTimeout(() => {
       connectDB();
-    }, 5000);
+    }, 10000);
   }
 };
 
-// Connect to MongoDB before starting server
-let serverStarted = false;
+// Start server immediately (socket.io doesn't need MongoDB)
+// MongoDB will connect in the background
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Socket.io is ready for connections`);
+  console.log(`⚠️  MongoDB connection in progress...`);
+});
 
-connectDB().then(() => {
-  if (!serverStarted) {
-    serverStarted = true;
-    const PORT = process.env.PORT || 5000;
-    server.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-    });
-  }
-}).catch(err => {
-  console.error('Failed to start server:', err);
-  // Don't exit - let the retry mechanism handle it
+// Connect to MongoDB in the background (non-blocking)
+connectDB().catch(err => {
+  console.error('MongoDB connection will retry in background');
 });
 
 module.exports = { io };
