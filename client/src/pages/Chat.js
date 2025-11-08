@@ -236,6 +236,17 @@ const Chat = () => {
     const messageText = newMessage.trim();
     setNewMessage(''); // Clear input immediately
 
+    // Prepare message data (outside try block so it's accessible in catch)
+    const messageData = {
+      text: messageText,
+      userId: currentUser.uid, // Firebase UID for security rules
+      mongoUserId: userData._id, // MongoDB ID for display/matching
+      userName: userData.name || 'Unknown',
+      userProfilePicture: userData.profilePicture || '',
+      createdAt: serverTimestamp(),
+      timestamp: new Date().toISOString(), // Fallback timestamp
+    };
+
     try {
       console.log('\n📤 === SENDING MESSAGE ===');
       console.log('Room ID:', roomId);
@@ -252,17 +263,6 @@ const Chat = () => {
       const messagesRef = collection(db, 'chats', roomId, 'messages');
       console.log('✅ Messages collection reference created:', messagesRef);
       console.log('   Collection path: chats/' + roomId + '/messages');
-
-      // Prepare message data
-      const messageData = {
-        text: messageText,
-        userId: currentUser.uid, // Firebase UID for security rules
-        mongoUserId: userData._id, // MongoDB ID for display/matching
-        userName: userData.name || 'Unknown',
-        userProfilePicture: userData.profilePicture || '',
-        createdAt: serverTimestamp(),
-        timestamp: new Date().toISOString(), // Fallback timestamp
-      };
 
       console.log('Message data prepared:', {
         ...messageData,
@@ -305,7 +305,7 @@ const Chat = () => {
         console.error('   2. Security rules allow authenticated users to write');
         console.error('   3. userId in message matches currentUser.uid');
         console.error('   4. Current user Firebase UID:', currentUser.uid);
-        console.error('   5. Message userId:', messageData?.userId);
+        console.error('   5. Message userId:', messageData.userId);
       } else if (error.code === 'failed-precondition') {
         toast.error('Firestore index required. Check console for link to create index.');
         if (error.message?.includes('index')) {
