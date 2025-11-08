@@ -17,7 +17,10 @@ const Chat = () => {
   const [friends, setFriends] = useState([]);
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [roomId, setRoomId] = useState(null);
+  const [currentRoomId, setCurrentRoomId] = useState(null);
   const messagesEndRef = useRef(null);
+  const socketRef = useRef(null);
+  const roomIdRef = useRef(null);
 
   // Fetch friends list
   useEffect(() => {
@@ -30,12 +33,16 @@ const Chat = () => {
   // Set room ID based on project or friend
   useEffect(() => {
     if (projectId) {
-      setRoomId(`project-${projectId}`);
+      const newRoomId = `project-${projectId}`;
+      setRoomId(newRoomId);
+      roomIdRef.current = newRoomId;
       setSelectedFriend(null);
     } else if (friendId && userData?._id) {
       // Create a consistent room ID for two friends (sorted IDs)
       const friendIds = [userData._id, friendId].sort();
-      setRoomId(`friend-${friendIds[0]}-${friendIds[1]}`);
+      const newRoomId = `friend-${friendIds[0]}-${friendIds[1]}`;
+      setRoomId(newRoomId);
+      roomIdRef.current = newRoomId;
       // Find and set selected friend
       api.get(`/users/${friendId}`).then(res => {
         setSelectedFriend(res.data);
@@ -44,80 +51,129 @@ const Chat = () => {
       });
     } else {
       setRoomId(null);
+      roomIdRef.current = null;
       setSelectedFriend(null);
     }
   }, [projectId, friendId, userData]);
 
-  // Socket connection
+  // Initialize socket connection once
   useEffect(() => {
-    if (!roomId || !userData) return;
+    if (!userData?._id) return;
 
     const socketURL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
-    console.log('Connecting to socket:', socketURL);
+    console.log('🔌 Initializing socket connection:', socketURL);
     
     const newSocket = io(socketURL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 5,
+      query: {
+        userId: userData._id
+      }
     });
 
     newSocket.on('connect', () => {
       console.log('✅ Socket connected:', newSocket.id);
-      console.log('📤 Joining room:', roomId);
-      newSocket.emit('join-room', roomId);
-      // Load previous messages after a short delay to ensure room join is processed
-      setTimeout(() => {
-        loadMessages(roomId);
-      }, 500);
+      setSocket(newSocket);
+      socketRef.current = newSocket;
     });
 
     newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
+      console.log('❌ Socket disconnected');
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.error('❌ Socket connection error:', error);
       toast.error('Failed to connect to chat server');
     });
 
     newSocket.on('receive-message', (data) => {
-      console.log('📥 Received message event:', data);
-      console.log('Current roomId:', roomId);
-      console.log('Message roomId:', data.roomId);
+      console.log('📥 Received message event:', {
+        roomId: data.roomId,
+        from: data.user?.name,
+        message: data.message,
+        messageId: data.id
+      });
       
-      if (data.roomId === roomId) {
-        console.log('✅ Room ID matches, adding message');
+      // Check if message is for current room using ref (always up-to-date)
+      const currentRoom = roomIdRef.current;
+      const isForCurrentRoom = data.roomId === currentRoom;
+      
+      console.log(`Checking room match: ${data.roomId} === ${currentRoom} = ${isForCurrentRoom}`);
+      
+      if (isForCurrentRoom) {
         setMessages((prev) => {
-          // Check if message already exists to prevent duplicates
-          const exists = prev.some(msg => {
-            // More robust duplicate check
-            const sameUser = msg.user?._id === data.user?._id;
-            const sameMessage = msg.message === data.message;
-            const sameTime = Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 1000; // Within 1 second
-            return sameUser && sameMessage && sameTime;
-          });
+          // Check for duplicates using message ID if available
+          const exists = data.id 
+            ? prev.some(msg => msg.id === data.id)
+            : prev.some(msg => {
+                const sameUser = msg.user?._id === data.user?._id;
+                const sameMessage = msg.message === data.message;
+                const sameTime = Math.abs(new Date(msg.timestamp) - new Date(data.timestamp)) < 2000;
+                return sameUser && sameMessage && sameTime;
+              });
+          
           if (exists) {
             console.log('⚠️ Duplicate message detected, skipping');
             return prev;
           }
+          
           console.log('✅ Adding new message to state');
           return [...prev, data];
         });
       } else {
-        console.log('❌ Room ID mismatch, ignoring message');
+        console.log(`⚠️ Message for different room (${data.roomId} vs ${currentRoom}), ignoring`);
       }
     });
 
+    newSocket.on('room-joined', ({ roomId }) => {
+      console.log('✅ Confirmed: Joined room', roomId);
+    });
+
+    newSocket.on('message-error', ({ error }) => {
+      console.error('❌ Message error from server:', error);
+      toast.error(error || 'Failed to send message');
+    });
+
     setSocket(newSocket);
+    socketRef.current = newSocket;
 
     return () => {
-      if (newSocket.connected) {
-        newSocket.emit('leave-room', roomId);
+      if (newSocket && newSocket.connected) {
+        if (currentRoomId) {
+          newSocket.emit('leave-room', currentRoomId);
+        }
+        newSocket.close();
       }
-      newSocket.close();
     };
-  }, [roomId, userData]);
+  }, [userData?._id]); // Only depend on userData._id
+
+  // Handle room joining when roomId changes
+  useEffect(() => {
+    if (!socket || !socket.connected || !roomId) {
+      return;
+    }
+
+    // Leave previous room if exists
+    if (currentRoomId && currentRoomId !== roomId) {
+      console.log('🚪 Leaving previous room:', currentRoomId);
+      socket.emit('leave-room', currentRoomId);
+    }
+
+    // Join new room
+    console.log('🚪 Joining new room:', roomId);
+    socket.emit('join-room', roomId);
+    setCurrentRoomId(roomId);
+    roomIdRef.current = roomId; // Update ref for message handler
+    
+    // Clear messages and load new ones
+    setMessages([]);
+    setTimeout(() => {
+      loadMessages(roomId);
+    }, 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, socket]);
 
   const fetchFriends = async () => {
     try {
@@ -145,15 +201,16 @@ const Chat = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !socket || !userData || !roomId) {
-      if (!socket) {
-        toast.error('Not connected to chat server');
-      }
+    
+    if (!newMessage.trim()) return;
+    
+    if (!socket || !socket.connected) {
+      toast.error('Not connected to chat server. Please wait...');
       return;
     }
 
-    if (!socket.connected) {
-      toast.error('Not connected to chat server. Please wait...');
+    if (!roomId || !userData) {
+      toast.error('Please select a friend to chat with');
       return;
     }
 
@@ -161,7 +218,7 @@ const Chat = () => {
     setNewMessage(''); // Clear input immediately
 
     const messageData = {
-      roomId,
+      roomId: roomId,
       user: {
         _id: userData._id,
         name: userData.name,
@@ -172,9 +229,7 @@ const Chat = () => {
     };
 
     try {
-      // Emit message via socket - this will broadcast to all users in the room
-      // The server will save it and broadcast it back to all users (including sender)
-      console.log('📤 Sending message via socket:', {
+      console.log('📤 Sending message:', {
         roomId: messageData.roomId,
         user: messageData.user?.name,
         message: messageData.message,
@@ -182,18 +237,17 @@ const Chat = () => {
         connected: socket.connected
       });
       
+      // Send message via socket
       socket.emit('send-message', messageData);
-      console.log('✅ Message emitted to socket');
+      console.log('✅ Message sent to server');
       
-      // Don't add to local state here - let the socket 'receive-message' event handle it
-      // This prevents duplicates and ensures all users see the message
-      // The server will save the message and broadcast it back
+      // Don't add to local state - wait for server to broadcast it back
+      // This ensures all users (including sender) see the message consistently
       
     } catch (error) {
       console.error('❌ Error sending message:', error);
       toast.error('Failed to send message');
-      // Restore message if sending failed
-      setNewMessage(messageText);
+      setNewMessage(messageText); // Restore message
     }
   };
 
@@ -203,6 +257,7 @@ const Chat = () => {
       const friendIds = [userData._id, friend._id].sort();
       const newRoomId = `friend-${friendIds[0]}-${friendIds[1]}`;
       setRoomId(newRoomId);
+      roomIdRef.current = newRoomId;
       setMessages([]);
       // Messages will be loaded when socket connects to new room
     }

@@ -30,38 +30,66 @@ app.use('/api/chat', require('./routes/chat'));
 
 // Socket.io for real-time chat
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  const userId = socket.handshake.query?.userId || 'unknown';
+  console.log(`\n🔌 User connected: ${socket.id} (User ID: ${userId})`);
 
-  socket.on('join-room', (roomId) => {
-    socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
-    
-    // Get all sockets in the room to verify
-    io.in(roomId).fetchSockets().then(sockets => {
-      console.log(`Room ${roomId} now has ${sockets.length} user(s):`, sockets.map(s => s.id));
-    });
+  // Store user ID with socket for easier tracking
+  socket.userId = userId;
+
+  socket.on('join-room', async (roomId) => {
+    try {
+      // Leave all other rooms first
+      const rooms = Array.from(socket.rooms);
+      rooms.forEach(room => {
+        if (room !== socket.id && room !== roomId) {
+          socket.leave(room);
+        }
+      });
+      
+      // Join the new room
+      socket.join(roomId);
+      console.log(`🚪 User ${socket.id} (${userId}) joined room: ${roomId}`);
+      
+      // Get all sockets in the room to verify
+      const socketsInRoom = await io.in(roomId).fetchSockets();
+      console.log(`📊 Room ${roomId} now has ${socketsInRoom.length} user(s):`);
+      socketsInRoom.forEach(s => {
+        console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
+      });
+      
+      // Notify client that room join was successful
+      socket.emit('room-joined', { roomId });
+    } catch (error) {
+      console.error('Error joining room:', error);
+    }
   });
 
   socket.on('leave-room', (roomId) => {
     socket.leave(roomId);
-    console.log(`User ${socket.id} left room ${roomId}`);
+    console.log(`🚪 User ${socket.id} (${userId}) left room ${roomId}`);
   });
 
   socket.on('send-message', async (data) => {
     try {
-      console.log(`\n=== MESSAGE RECEIVED ===`);
+      console.log(`\n📨 === MESSAGE RECEIVED ===`);
       console.log(`From: ${data.user?.name} (${data.user?._id})`);
       console.log(`Room: ${data.roomId}`);
       console.log(`Message: ${data.message}`);
+      console.log(`Socket: ${socket.id}`);
       
-      // Check how many users are in the room
+      // Verify room exists and get all sockets in it
       const socketsInRoom = await io.in(data.roomId).fetchSockets();
-      console.log(`Users in room ${data.roomId}: ${socketsInRoom.length}`);
-      socketsInRoom.forEach(s => {
-        console.log(`  - Socket ID: ${s.id}`);
-      });
+      console.log(`👥 Users in room ${data.roomId}: ${socketsInRoom.length}`);
       
-      // Save message to backend storage first
+      if (socketsInRoom.length === 0) {
+        console.warn(`⚠️  WARNING: No users in room ${data.roomId}! Message might not be delivered.`);
+      } else {
+        socketsInRoom.forEach(s => {
+          console.log(`   - Socket: ${s.id} (User: ${s.userId || 'unknown'})`);
+        });
+      }
+      
+      // Save message to backend storage
       const chatRoute = require('./routes/chat');
       const { messagesStore } = chatRoute;
       
@@ -73,6 +101,7 @@ io.on('connection', (socket) => {
       const messageToSave = {
         ...data,
         timestamp: data.timestamp || new Date().toISOString(),
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Unique ID for duplicate detection
       };
       
       messages.push(messageToSave);
@@ -83,15 +112,17 @@ io.on('connection', (socket) => {
       }
       
       messagesStore.set(data.roomId, messages);
-      console.log(`Message saved. Room now has ${messages.length} total messages`);
+      console.log(`💾 Message saved. Room now has ${messages.length} total messages`);
       
-      // Emit to ALL users in the room (including sender) - this ensures everyone sees it
+      // Broadcast to ALL users in the room (including sender)
+      // This ensures everyone sees the message, including the sender
       io.to(data.roomId).emit('receive-message', messageToSave);
-      console.log(`✅ Message broadcasted to ${socketsInRoom.length} user(s) in room ${data.roomId}`);
-      console.log(`=== END MESSAGE ===\n`);
+      console.log(`📢 Message broadcasted to ${socketsInRoom.length} user(s) in room ${data.roomId}`);
+      console.log(`✅ === MESSAGE SENT ===\n`);
       
     } catch (error) {
-      console.error('Error in send-message handler:', error);
+      console.error('❌ Error in send-message handler:', error);
+      socket.emit('message-error', { error: 'Failed to send message' });
     }
   });
 
