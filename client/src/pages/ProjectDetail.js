@@ -34,12 +34,15 @@ const ProjectDetail = () => {
   };
 
   const handleUpvote = async () => {
-    if (!userData) return;
+    if (!userData) {
+      toast.error('Please log in to upvote');
+      return;
+    }
     try {
       const response = await api.post(`/projects/${id}/upvote`, { userId: userData._id });
       setProject(response.data);
     } catch (error) {
-      toast.error('Failed to upvote');
+      toast.error(error.response?.data?.error || 'Failed to upvote');
     }
   };
 
@@ -94,8 +97,12 @@ const ProjectDetail = () => {
     }
   };
 
-  const isUpvoted = project?.upvotes?.includes(userData?._id);
-  const isBookmarked = project?.bookmarks?.includes(userData?._id);
+  const isUpvoted = project?.upvotes?.some(
+    upvoteId => upvoteId.toString() === userData?._id?.toString()
+  );
+  const isBookmarked = project?.bookmarks?.some(
+    bookmarkId => bookmarkId.toString() === userData?._id?.toString()
+  );
   const isMember = project?.members?.some(m => m.user._id === userData?._id);
   const hasRequested = project?.pendingRequests?.some(r => r.user._id === userData?._id);
   const isCreator = project?.creator?._id === userData?._id;

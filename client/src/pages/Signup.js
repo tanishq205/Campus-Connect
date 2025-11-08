@@ -48,7 +48,7 @@ const Signup = () => {
       });
 
       // Create user profile with college
-      const response = await api.post('/auth/verify', {
+      await api.post('/auth/verify', {
         uid: userCredential.user.uid,
         email: formData.email,
         name: formData.name,

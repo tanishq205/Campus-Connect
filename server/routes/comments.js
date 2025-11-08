@@ -41,22 +41,35 @@ router.get('/project/:projectId', async (req, res) => {
 router.post('/:id/upvote', async (req, res) => {
   try {
     const { userId } = req.body;
-    const comment = await Comment.findById(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
     
+    const comment = await Comment.findById(req.params.id);
     if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
     
-    const upvoteIndex = comment.upvotes.indexOf(userId);
+    // Convert userId to string for comparison
+    const userIdStr = userId.toString();
+    const upvoteIndex = comment.upvotes.findIndex(
+      upvoteId => upvoteId.toString() === userIdStr
+    );
+    
     if (upvoteIndex > -1) {
+      // Remove upvote (unlike)
       comment.upvotes.splice(upvoteIndex, 1);
     } else {
-      comment.upvotes.push(userId);
+      // Add upvote (like) - prevent duplicate
+      if (!comment.upvotes.some(id => id.toString() === userIdStr)) {
+        comment.upvotes.push(userId);
+      }
     }
     
     await comment.save();
     res.json(comment);
   } catch (error) {
+    console.error('Error upvoting comment:', error);
     res.status(500).json({ error: error.message });
   }
 });

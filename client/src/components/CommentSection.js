@@ -45,7 +45,10 @@ const CommentSection = ({ projectId }) => {
   };
 
   const handleUpvote = async (commentId) => {
-    if (!userData) return;
+    if (!userData) {
+      toast.error('Please log in to upvote');
+      return;
+    }
     try {
       const response = await api.post(`/comments/${commentId}/upvote`, {
         userId: userData._id,
@@ -54,7 +57,7 @@ const CommentSection = ({ projectId }) => {
         comments.map((c) => (c._id === commentId ? response.data : c))
       );
     } catch (error) {
-      toast.error('Failed to upvote');
+      toast.error(error.response?.data?.error || 'Failed to upvote');
     }
   };
 
@@ -82,7 +85,9 @@ const CommentSection = ({ projectId }) => {
 
       <div className="comments-list">
         {comments.map((comment) => {
-          const isUpvoted = comment.upvotes?.includes(userData?._id);
+          const isUpvoted = comment.upvotes?.some(
+            upvoteId => upvoteId.toString() === userData?._id?.toString()
+          );
           return (
             <div key={comment._id} className="comment-item">
               <div className="comment-author">

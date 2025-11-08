@@ -30,6 +30,11 @@ export const AuthProvider = ({ children }) => {
             name: user.displayName || user.email?.split('@')[0],
           });
           setUserData(response.data.user);
+          // Refresh user data to get updated info
+          if (response.data.user?._id) {
+            const updatedUser = await api.get(`/users/${response.data.user._id}`);
+            setUserData(updatedUser.data);
+          }
         } catch (error) {
           console.error('Error verifying user:', error);
         }

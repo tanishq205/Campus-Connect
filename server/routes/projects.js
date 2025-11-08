@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const User = require('../models/User');
 
 // Create a new project
 router.post('/', async (req, res) => {
   try {
+    if (!req.body.creator) {
+      return res.status(400).json({ error: 'Creator ID is required' });
+    }
+    
     const project = new Project(req.body);
     await project.save();
     
@@ -18,8 +23,10 @@ router.post('/', async (req, res) => {
       .populate('creator', 'name profilePicture college')
       .populate('members.user', 'name profilePicture');
     
+    console.log('Project created:', populatedProject._id, 'by user:', project.creator);
     res.status(201).json(populatedProject);
   } catch (error) {
+    console.error('Error creating project:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -27,6 +34,11 @@ router.post('/', async (req, res) => {
 // Get all projects
 router.get('/', async (req, res) => {
   try {
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected. Please try again in a moment.' });
+    }
+    
     const { tag, skill, search } = req.query;
     let query = {};
     
@@ -48,8 +60,10 @@ router.get('/', async (req, res) => {
       .populate('members.user', 'name profilePicture')
       .sort({ createdAt: -1 });
     
+    console.log(`Returning ${projects.length} projects`);
     res.json(projects);
   } catch (error) {
+    console.error('Error fetching projects:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -163,22 +177,35 @@ router.post('/:id/request/:requestId', async (req, res) => {
 router.post('/:id/upvote', async (req, res) => {
   try {
     const { userId } = req.body;
-    const project = await Project.findById(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
     
+    const project = await Project.findById(req.params.id);
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
     
-    const upvoteIndex = project.upvotes.indexOf(userId);
+    // Convert userId to string for comparison
+    const userIdStr = userId.toString();
+    const upvoteIndex = project.upvotes.findIndex(
+      upvoteId => upvoteId.toString() === userIdStr
+    );
+    
     if (upvoteIndex > -1) {
+      // Remove upvote (unlike)
       project.upvotes.splice(upvoteIndex, 1);
     } else {
-      project.upvotes.push(userId);
+      // Add upvote (like) - prevent duplicate
+      if (!project.upvotes.some(id => id.toString() === userIdStr)) {
+        project.upvotes.push(userId);
+      }
     }
     
     await project.save();
     res.json(project);
   } catch (error) {
+    console.error('Error upvoting project:', error);
     res.status(500).json({ error: error.message });
   }
 });

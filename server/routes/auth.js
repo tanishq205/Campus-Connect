@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
 // Verify Firebase token and create/update user
@@ -9,6 +10,11 @@ router.post('/verify', async (req, res) => {
     
     if (!uid || !email || !name) {
       return res.status(400).json({ error: 'Missing required fields: uid, email, name' });
+    }
+    
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'Database not connected. Please try again in a moment.' });
     }
     
     let user = await User.findOne({ uid });

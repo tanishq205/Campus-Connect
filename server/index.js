@@ -49,14 +49,56 @@ io.on('connection', (socket) => {
   });
 });
 
-// MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/campus-connect')
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+// MongoDB connection with better error handling
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/campus-connect';
+    
+    if (!process.env.MONGODB_URI) {
+      console.warn('⚠️  WARNING: MONGODB_URI not set in .env file. Using default localhost connection.');
+      console.warn('⚠️  Make sure MongoDB is running locally or set MONGODB_URI in server/.env');
+    }
+    
+    await mongoose.connect(mongoURI, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000,
+    });
+    
+    console.log('✅ MongoDB connected successfully');
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB connection error:', err);
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.warn('⚠️  MongoDB disconnected. Attempting to reconnect...');
+    });
+    
+    mongoose.connection.on('reconnected', () => {
+      console.log('✅ MongoDB reconnected');
+    });
+    
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error.message);
+    console.error('💡 Make sure:');
+    console.error('   1. MongoDB is running (if using localhost)');
+    console.error('   2. MONGODB_URI is set correctly in server/.env');
+    console.error('   3. Your IP is whitelisted in MongoDB Atlas (if using Atlas)');
+    console.error('   4. Your MongoDB Atlas connection string is correct');
+    process.exit(1); // Exit if can't connect
+  }
+};
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Connect to MongoDB before starting server
+connectDB().then(() => {
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 module.exports = { io };

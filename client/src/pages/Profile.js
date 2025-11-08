@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../config/api';
 import ProjectCard from '../components/ProjectCard';
 import EditProfileModal from '../components/EditProfileModal';
-import { FiEdit2, FiGithub, FiLinkedin, FiLink } from 'react-icons/fi';
+import { FiEdit2, FiGithub, FiLinkedin, FiLink, FiUserPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './Profile.css';
 
@@ -16,6 +16,9 @@ const Profile = () => {
   const [bookmarkedProjects, setBookmarkedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('projects');
+  const [isFriend, setIsFriend] = useState(false);
+  const [hasFriendRequest, setHasFriendRequest] = useState(false);
   const isOwnProfile = currentUserData?._id === id;
 
   useEffect(() => {
@@ -30,11 +33,39 @@ const Profile = () => {
       // Fetch user's projects
       const projectsResponse = await api.get('/projects');
       const allProjects = projectsResponse.data;
-      setUserProjects(allProjects.filter(p => p.creator._id === id));
+      setUserProjects(allProjects.filter(p => p.creator?._id === id || p.creator?._id?.toString() === id));
       
-      // Fetch bookmarked projects
-      if (response.data.bookmarkedProjects) {
-        setBookmarkedProjects(response.data.bookmarkedProjects);
+      // Fetch bookmarked projects with full details
+      if (response.data.bookmarkedProjects && response.data.bookmarkedProjects.length > 0) {
+        const bookmarkedIds = response.data.bookmarkedProjects.map(p => p._id || p);
+        const allProjectsData = await api.get('/projects');
+        const bookmarked = allProjectsData.data.filter(p => 
+          bookmarkedIds.some(id => id.toString() === (p._id?.toString() || p._id))
+        );
+        setBookmarkedProjects(bookmarked);
+      } else {
+        setBookmarkedProjects([]);
+      }
+      
+      // Check friend status
+      if (currentUserData?._id && !isOwnProfile) {
+        try {
+          const currentUser = await api.get(`/users/${currentUserData._id}`);
+          setIsFriend(
+            currentUser.data.friends?.some(
+              f => (f._id?.toString() || f.toString()) === id
+            ) || false
+          );
+          
+          const profileUser = await api.get(`/users/${id}`);
+          setHasFriendRequest(
+            profileUser.data.friendRequests?.some(
+              req => (req.from?._id?.toString() || req.from?.toString()) === currentUserData._id && req.status === 'pending'
+            ) || false
+          );
+        } catch (error) {
+          console.error('Error checking friend status:', error);
+        }
       }
     } catch (error) {
       toast.error('Failed to load profile');
@@ -47,6 +78,19 @@ const Profile = () => {
   const handleProfileUpdate = () => {
     setShowEditModal(false);
     fetchProfile();
+  };
+
+  const handleSendFriendRequest = async () => {
+    if (!currentUserData?._id) return;
+    try {
+      await api.post(`/users/${id}/friend-request`, {
+        fromUserId: currentUserData._id,
+      });
+      toast.success('Friend request sent!');
+      setHasFriendRequest(true);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to send friend request');
+    }
   };
 
   if (loading) {
@@ -89,7 +133,34 @@ const Profile = () => {
               <span className="stat-value">{bookmarkedProjects.length}</span>
               <span className="stat-label">Bookmarks</span>
             </div>
+            {!isOwnProfile && (
+              <div className="stat">
+                <span className="stat-value">{profileData?.friends?.length || 0}</span>
+                <span className="stat-label">Friends</span>
+              </div>
+            )}
           </div>
+          
+          {!isOwnProfile && currentUserData && (
+            <div className="profile-actions">
+              {isFriend ? (
+                <button className="friend-btn" disabled>
+                  Friends
+                </button>
+              ) : hasFriendRequest ? (
+                <button className="friend-btn" disabled>
+                  Request Sent
+                </button>
+              ) : (
+                <button
+                  className="friend-btn"
+                  onClick={handleSendFriendRequest}
+                >
+                  <FiUserPlus /> Add Friend
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="profile-details">
             <p className="profile-college">{profileData.college}</p>
@@ -141,20 +212,47 @@ const Profile = () => {
 
       <div className="profile-content">
         <div className="profile-tabs">
-          <button className="tab active">Projects</button>
-          {isOwnProfile && <button className="tab">Bookmarks</button>}
-        </div>
-
-        <div className="profile-projects">
-          {userProjects.map((project) => (
-            <ProjectCard key={project._id} project={project} />
-          ))}
-          {userProjects.length === 0 && (
-            <div className="empty-state">
-              <p>No projects yet</p>
-            </div>
+          <button
+            className={`tab ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projects
+          </button>
+          {isOwnProfile && (
+            <button
+              className={`tab ${activeTab === 'bookmarks' ? 'active' : ''}`}
+              onClick={() => setActiveTab('bookmarks')}
+            >
+              Bookmarks
+            </button>
           )}
         </div>
+
+        {activeTab === 'projects' && (
+          <div className="profile-projects">
+            {userProjects.map((project) => (
+              <ProjectCard key={project._id} project={project} />
+            ))}
+            {userProjects.length === 0 && (
+              <div className="empty-state">
+                <p>No projects yet</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'bookmarks' && isOwnProfile && (
+          <div className="profile-projects">
+            {bookmarkedProjects.map((project) => (
+              <ProjectCard key={project._id} project={project} />
+            ))}
+            {bookmarkedProjects.length === 0 && (
+              <div className="empty-state">
+                <p>No bookmarked projects yet</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showEditModal && (

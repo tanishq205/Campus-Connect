@@ -22,6 +22,8 @@ const Dashboard = () => {
   const fetchProjects = async () => {
     try {
       const response = await api.get('/projects');
+      console.log('Fetched projects:', response.data.length, 'projects');
+      console.log('Projects data:', response.data);
       setProjects(response.data);
     } catch (error) {
       console.error('Error fetching projects:', error);

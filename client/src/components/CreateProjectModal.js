@@ -21,6 +21,12 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!userData || !userData._id) {
+      toast.error('User data not loaded. Please refresh the page.');
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -33,10 +39,13 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
         status: 'open',
       };
 
-      await api.post('/projects', projectData);
+      console.log('Creating project with data:', projectData);
+      const response = await api.post('/projects', projectData);
+      console.log('Project created:', response.data);
       toast.success('Project created successfully!');
       onSuccess();
     } catch (error) {
+      console.error('Error creating project:', error);
       toast.error(error.response?.data?.error || 'Failed to create project');
     } finally {
       setLoading(false);

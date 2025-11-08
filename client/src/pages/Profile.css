@@ -108,6 +108,35 @@
   margin-top: 12px;
 }
 
+.profile-actions {
+  margin-bottom: 20px;
+}
+
+.friend-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  background-color: #0095f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.friend-btn:hover:not(:disabled) {
+  background-color: #0084d4;
+}
+
+.friend-btn:disabled {
+  background-color: #dbdbdb;
+  color: #8e8e8e;
+  cursor: not-allowed;
+}
+
 .profile-links {
   display: flex;
   gap: 20px;
@@ -173,6 +202,11 @@
   border-bottom: 2px solid transparent;
   cursor: pointer;
   transition: color 0.2s;
+  margin-right: 40px;
+}
+
+.tab:hover {
+  color: #262626;
 }
 
 .tab.active {
