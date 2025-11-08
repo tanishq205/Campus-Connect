@@ -20,8 +20,10 @@ const Chat = () => {
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'projects'
   const [channel, setChannel] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [unreadCounts, setUnreadCounts] = useState({}); // { 'friend-id': count, 'project-id': count }
   const messagesEndRef = useRef(null);
   const channelRef = useRef(null);
+  const lastReadMessageRef = useRef({}); // Track last read message ID per chat
 
   // Connect user to Stream Chat when component mounts
   useEffect(() => {
@@ -82,6 +84,72 @@ const Chat = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData]);
+
+  // Set up unread message tracking when friends/projects are loaded and connected
+  useEffect(() => {
+    if (streamClient.userID && connectionStatus === 'connected' && friends.length > 0 || projects.length > 0) {
+      setupUnreadTracking();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends, projects, connectionStatus]);
+
+  // Set up unread message tracking for all chats
+  const setupUnreadTracking = async () => {
+    if (!streamClient.userID || !userData?._id) return;
+
+    try {
+      // Watch all friend channels
+      for (const friend of friends) {
+        const friendIds = [userData._id.toString(), friend._id.toString()].sort();
+        const channelId = `friend-${friendIds[0]}-${friendIds[1]}`;
+        const channel = streamClient.channel('messaging', channelId);
+        
+        try {
+          await channel.watch();
+          channel.on('message.new', (event) => {
+            const message = event.message;
+            const messageUserId = message.user?.id || message.user_id;
+            const isCurrentChat = selectedFriend?._id === friend._id;
+            
+            if (messageUserId !== userData._id.toString() && !isCurrentChat) {
+              setUnreadCounts(prev => ({
+                ...prev,
+                [friend._id]: (prev[friend._id] || 0) + 1
+              }));
+            }
+          });
+        } catch (err) {
+          console.warn(`Failed to watch channel for friend ${friend._id}:`, err);
+        }
+      }
+
+      // Watch all project channels
+      for (const project of projects) {
+        const channelId = `project-${project._id}`;
+        const channel = streamClient.channel('team', channelId);
+        
+        try {
+          await channel.watch();
+          channel.on('message.new', (event) => {
+            const message = event.message;
+            const messageUserId = message.user?.id || message.user_id;
+            const isCurrentChat = selectedProject?._id === project._id;
+            
+            if (messageUserId !== userData._id.toString() && !isCurrentChat) {
+              setUnreadCounts(prev => ({
+                ...prev,
+                [`project-${project._id}`]: (prev[`project-${project._id}`] || 0) + 1
+              }));
+            }
+          });
+        } catch (err) {
+          console.warn(`Failed to watch channel for project ${project._id}:`, err);
+        }
+      }
+    } catch (error) {
+      console.error('Error setting up unread tracking:', error);
+    }
+  };
 
   // Set up channel based on project or friend
   useEffect(() => {
@@ -188,6 +256,40 @@ const Chat = () => {
         // Set up message listener
         newChannel.on('message.new', (event) => {
           console.log('📥 New message received:', event);
+          const message = event.message;
+          const messageUserId = message.user?.id || message.user_id;
+          
+          // Check if this is the currently open chat
+          const isCurrentChat = (selectedFriend?._id && channelId.includes(selectedFriend._id.toString())) ||
+                               (selectedProject?._id && channelId.includes(selectedProject._id.toString())) ||
+                               (projectId && channelId.includes(projectId));
+          
+          // Only count as unread if:
+          // 1. Message is not from current user
+          // 2. This chat is not currently open
+          if (messageUserId !== userData._id.toString() && !isCurrentChat) {
+            // Increment unread count
+            if (channelId.startsWith('friend-')) {
+              // Extract friend ID from channel ID
+              const friendIds = channelId.replace('friend-', '').split('-');
+              const otherFriendId = friendIds.find(id => id !== userData._id.toString());
+              if (otherFriendId) {
+                setUnreadCounts(prev => ({
+                  ...prev,
+                  [otherFriendId]: (prev[otherFriendId] || 0) + 1
+                }));
+                console.log(`📬 Unread count for friend ${otherFriendId}:`, (unreadCounts[otherFriendId] || 0) + 1);
+              }
+            } else if (channelId.startsWith('project-')) {
+              const projectIdFromChannel = channelId.replace('project-', '');
+              setUnreadCounts(prev => ({
+                ...prev,
+                [`project-${projectIdFromChannel}`]: (prev[`project-${projectIdFromChannel}`] || 0) + 1
+              }));
+              console.log(`📬 Unread count for project ${projectIdFromChannel}:`, (unreadCounts[`project-${projectIdFromChannel}`] || 0) + 1);
+            }
+          }
+          
           loadMessages(newChannel);
         });
 
@@ -239,6 +341,36 @@ const Chat = () => {
       }));
 
       setMessages(formattedMessages);
+      
+      // Mark messages as read when loading (reset unread count)
+      const channelId = channelInstance.id || channelInstance.cid?.replace(`${channelInstance.type}:`, '');
+      if (channelId) {
+        if (channelId.startsWith('friend-')) {
+          const friendIds = channelId.replace('friend-', '').split('-');
+          const otherFriendId = friendIds.find(id => id !== userData._id.toString());
+          if (otherFriendId) {
+            setUnreadCounts(prev => {
+              const newCounts = { ...prev };
+              delete newCounts[otherFriendId];
+              return newCounts;
+            });
+          }
+        } else if (channelId.startsWith('project-')) {
+          const projectIdFromChannel = channelId.replace('project-', '');
+          setUnreadCounts(prev => {
+            const newCounts = { ...prev };
+            delete newCounts[`project-${projectIdFromChannel}`];
+            return newCounts;
+          });
+        }
+      }
+      
+      // Store last read message ID
+      if (formattedMessages.length > 0) {
+        const lastMessage = formattedMessages[formattedMessages.length - 1];
+        lastReadMessageRef.current[channelId] = lastMessage.id;
+      }
+      
       console.log(`✅ Loaded ${formattedMessages.length} messages`);
     } catch (error) {
       console.error('❌ Error loading messages:', error);
@@ -308,6 +440,12 @@ const Chat = () => {
 
   const handleSelectFriend = (friend) => {
     setSelectedFriend(friend);
+    // Reset unread count for this friend
+    setUnreadCounts(prev => {
+      const newCounts = { ...prev };
+      delete newCounts[friend._id];
+      return newCounts;
+    });
     // Channel will be set up automatically via useEffect
   };
 
@@ -326,6 +464,12 @@ const Chat = () => {
   const handleSelectProject = (project) => {
     setSelectedProject(project);
     setSelectedFriend(null); // Clear friend selection
+    // Reset unread count for this project
+    setUnreadCounts(prev => {
+      const newCounts = { ...prev };
+      delete newCounts[`project-${project._id}`];
+      return newCounts;
+    });
     // Channel will be set up automatically via useEffect
   };
 
@@ -357,25 +501,33 @@ const Chat = () => {
                   </div>
                 ) : (
                   <div className="friends-list">
-                    {friends.map((friend) => (
-                      <div
-                        key={friend._id}
-                        className={`friend-item ${selectedFriend?._id === friend._id ? 'active' : ''}`}
-                        onClick={() => handleSelectFriend(friend)}
-                      >
-                        {friend.profilePicture ? (
-                          <img src={friend.profilePicture} alt={friend.name} />
-                        ) : (
-                          <div className="friend-avatar">
-                            {friend.name?.charAt(0) || 'U'}
+                    {friends.map((friend) => {
+                      const unreadCount = unreadCounts[friend._id] || 0;
+                      return (
+                        <div
+                          key={friend._id}
+                          className={`friend-item ${selectedFriend?._id === friend._id ? 'active' : ''}`}
+                          onClick={() => handleSelectFriend(friend)}
+                        >
+                          {friend.profilePicture ? (
+                            <img src={friend.profilePicture} alt={friend.name} />
+                          ) : (
+                            <div className="friend-avatar">
+                              {friend.name?.charAt(0) || 'U'}
+                            </div>
+                          )}
+                          <div className="friend-info">
+                            <h4>{friend.name}</h4>
+                            <p>{friend.college}</p>
                           </div>
-                        )}
-                        <div className="friend-info">
-                          <h4>{friend.name}</h4>
-                          <p>{friend.college}</p>
+                          {unreadCount > 0 && (
+                            <div className="unread-badge">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -390,6 +542,7 @@ const Chat = () => {
                   <div className="friends-list">
                     {projects.map((project) => {
                       const memberCount = (project.members?.length || 0) + 1; // +1 for creator
+                      const unreadCount = unreadCounts[`project-${project._id}`] || 0;
                       return (
                         <div
                           key={project._id}
@@ -403,6 +556,11 @@ const Chat = () => {
                             <h4>{project.title}</h4>
                             <p>{memberCount} {memberCount === 1 ? 'member' : 'members'}</p>
                           </div>
+                          {unreadCount > 0 && (
+                            <div className="unread-badge">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
