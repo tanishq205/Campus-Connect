@@ -126,7 +126,7 @@ const Chat = () => {
       // Watch all project channels
       for (const project of projects) {
         const channelId = `project-${project._id}`;
-        const channel = streamClient.channel('team', channelId);
+        const channel = streamClient.channel('messaging', channelId); // Use 'messaging' instead of 'team'
         
         try {
           await channel.watch();
@@ -167,11 +167,11 @@ const Chat = () => {
 
     if (projectId && userData?._id) {
       channelId = `project-${projectId}`;
-      channelType = 'team';
+      channelType = 'messaging'; // Use 'messaging' instead of 'team' for better permissions
     } else if (selectedProject?._id && userData?._id) {
       // Project selected from projects list
       channelId = `project-${selectedProject._id}`;
-      channelType = 'team';
+      channelType = 'messaging'; // Use 'messaging' instead of 'team' for better permissions
       console.log('📋 Project selected from list, setting up channel:', channelId);
     } else if (friendId && userData?._id) {
       // Friend selected via URL (e.g., /chat/friend/:friendId)
@@ -290,7 +290,7 @@ const Chat = () => {
           console.log('👥 Project channel members (total):', members.length);
           console.log('   Member IDs:', members);
           
-          // Validate we have at least 2 members (Stream Chat requires at least 2 for team channels)
+          // Ensure we have at least 2 members for group chat
           if (members.length < 2) {
             console.warn('⚠️  Project has less than 2 members, adding creator as fallback');
             if (project.creator) {
@@ -336,11 +336,11 @@ const Chat = () => {
           await newChannel.watch();
           console.log('✅ Channel watched successfully');
           
-          // For team channels, explicitly add all members after watching
+          // For messaging channels with multiple members, explicitly add all members after watching
           // This ensures all members are properly added to the channel
-          if (channelType === 'team' && validMembers.length > 0) {
+          if (channelType === 'messaging' && validMembers.length > 1) {
             try {
-              console.log('👥 Adding members to team channel...');
+              console.log('👥 Adding members to messaging channel...');
               // Add all members at once - Stream Chat's addMembers accepts an array
               await newChannel.addMembers(validMembers);
               console.log(`✅ Added ${validMembers.length} members to channel`);
