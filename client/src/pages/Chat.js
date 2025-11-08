@@ -82,17 +82,23 @@ const Chat = () => {
   // Set up channel based on project or friend
   useEffect(() => {
     if (!streamClient.userID || connectionStatus !== 'connected') {
+      console.log('⏳ Waiting for Stream Chat connection...', {
+        userID: streamClient.userID,
+        connectionStatus
+      });
       return;
     }
 
     let channelId = null;
     let channelType = 'messaging';
+    let targetFriendId = null;
 
     if (projectId) {
       channelId = `project-${projectId}`;
       channelType = 'team';
     } else if (friendId && userData?._id) {
-      // Create a consistent channel ID for two friends (sorted IDs)
+      // Friend selected via URL (e.g., /chat/friend/:friendId)
+      targetFriendId = friendId;
       const friendIds = [userData._id.toString(), friendId.toString()].sort();
       channelId = `friend-${friendIds[0]}-${friendIds[1]}`;
       channelType = 'messaging';
@@ -103,9 +109,17 @@ const Chat = () => {
       }).catch(err => {
         console.error('Failed to load friend:', err);
       });
+    } else if (selectedFriend?._id && userData?._id) {
+      // Friend selected from friends list
+      targetFriendId = selectedFriend._id.toString();
+      const friendIds = [userData._id.toString(), targetFriendId].sort();
+      channelId = `friend-${friendIds[0]}-${friendIds[1]}`;
+      channelType = 'messaging';
+      console.log('📋 Friend selected from list, setting up channel:', channelId);
     }
 
     if (!channelId) {
+      console.log('⏸️  No channel ID, clearing channel state');
       setChannel(null);
       channelRef.current = null;
       setMessages([]);
@@ -117,11 +131,17 @@ const Chat = () => {
         console.log('📡 Setting up Stream Chat channel:', channelId);
         
         // Get or create channel
+        const members = projectId 
+          ? [userData._id.toString()] // For project chats, add members as needed
+          : targetFriendId 
+            ? [userData._id.toString(), targetFriendId] // For friend chats, add both users
+            : [userData._id.toString()]; // Fallback
+        
+        console.log('👥 Channel members:', members);
+        
         const newChannel = streamClient.channel(channelType, channelId, {
           name: projectId ? `Project ${projectId}` : 'Direct Message',
-          members: projectId 
-            ? [userData._id.toString()] // For project chats, add members as needed
-            : [userData._id.toString(), friendId.toString()], // For friend chats, add both users
+          members: members,
         });
 
         // Watch the channel (this subscribes to real-time updates)
@@ -161,7 +181,7 @@ const Chat = () => {
       setChannel(null);
       setMessages([]);
     };
-  }, [projectId, friendId, userData, connectionStatus]);
+  }, [projectId, friendId, selectedFriend, userData, connectionStatus]);
 
   // Load messages from channel
   const loadMessages = async (channelInstance) => {
