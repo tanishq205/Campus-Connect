@@ -142,8 +142,8 @@
 
 .project-description {
   font-size: 14px;
-  color: var(--text-primary);
-  opacity: 0.85;
+  color: #e2e8f0 !important;
+  opacity: 0.9;
   line-height: 1.5;
   margin-bottom: 12px;
 }

@@ -13,7 +13,7 @@
 .explore-header h1 {
   font-size: 28px;
   font-weight: 600;
-  color: #262626;
+  color: var(--text-primary);
 }
 
 .filter-btn {
@@ -21,25 +21,29 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background-color: #ffffff;
-  border: 1px solid #dbdbdb;
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #262626;
-  transition: background-color 0.2s;
+  color: var(--text-primary);
+  transition: all 0.3s;
+  cursor: pointer;
 }
 
 .filter-btn:hover {
-  background-color: #fafafa;
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .filters-panel {
   display: flex;
   gap: 12px;
   padding: 20px;
-  background-color: white;
-  border: 1px solid #dbdbdb;
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   margin-bottom: 30px;
 }
@@ -47,15 +51,23 @@
 .filters-panel input {
   flex: 1;
   padding: 10px;
-  border: 1px solid #dbdbdb;
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   font-size: 14px;
-  background-color: #fafafa;
+  background: rgba(15, 23, 42, 0.4);
+  color: var(--text-primary);
+  transition: all 0.3s;
+}
+
+.filters-panel input::placeholder {
+  color: var(--text-muted);
 }
 
 .filters-panel input:focus {
-  border-color: #0095f6;
-  background-color: white;
+  border-color: #3b82f6;
+  background: rgba(15, 23, 42, 0.6);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .projects-grid {
@@ -67,7 +79,7 @@
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #8e8e8e;
+  color: var(--text-muted);
 }
 
 @media (max-width: 768px) {
