@@ -48,7 +48,6 @@
   font-size: 28px;
   font-weight: 300;
   color: #262626;
-  color: white;
 }
 
 .edit-profile-btn {
@@ -73,7 +72,6 @@
   display: flex;
   gap: 30px;
   margin-bottom: 20px;
-  color: rgb(249, 233, 233);
 }
 
 .stat {
@@ -101,7 +99,6 @@
   font-weight: 600;
   color: #262626;
   margin-bottom: 8px;
-  color:wheat;
 }
 
 .profile-bio {
@@ -109,7 +106,6 @@
   color: #262626;
   line-height: 1.5;
   margin-top: 12px;
-  color: wheat;
 }
 
 .profile-actions {
@@ -245,3 +241,84 @@
   }
 }
 
+/* --- Dark Theme Overrides --- */
+@media (prefers-color-scheme: dark) {
+  /* 1. Main Text and Background */
+  .profile {
+      /* Set main background to a dark color for the whole component */
+      color: #e4e6eb; /* Light text color */
+  }
+
+  /* 2. Header and Separator */
+  .profile-header {
+      border-bottom: 1px solid #3a3a3a; /* Darker border color */
+  }
+
+  /* 3. Text Colors (Overriding specific dark text) */
+  .profile-name-section h1,
+  .stat-value,
+  .profile-college,
+  .profile-bio,
+  .profile-skills h3,
+  .profile-interests h3 {
+      color: #e4e6eb; /* Light text color for titles and bold text */
+  }
+
+  /* 4. Secondary Text Colors (Labels, etc.) */
+  .stat-label,
+  .profile-details p:not(.profile-college):not(.profile-bio) {
+      color: #b0b3b8; /* A slightly dimmer light color for secondary text */
+  }
+
+  /* 5. Buttons and Interactive Elements */
+  .edit-profile-btn {
+      background-color: #3a3a3a; /* Dark background for button */
+      border: 1px solid #505050; /* Light border */
+      color: #e4e6eb; /* Light text color */
+  }
+
+  .edit-profile-btn:hover {
+      background-color: #505050; /* Slightly lighter dark background on hover */
+  }
+
+  /* 6. Tabs */
+  .profile-tabs {
+      border-bottom: 1px solid #3a3a3a;
+  }
+
+  .tab {
+      color: #b0b3b8; /* Light color for inactive tabs */
+  }
+
+  .tab:hover {
+      color: #e4e6eb; /* Lighter color on hover */
+  }
+
+  .tab.active {
+      color: #e4e6eb; /* Lighter color for active tab text */
+      border-bottom-color: #e4e6eb; /* Highlight line color */
+  }
+
+  /* 7. Tags (Skills/Interests) */
+  .skill-tag,
+  .interest-tag {
+      background-color: #3a3a3a; /* Dark background for tags */
+      color: #e4e6eb; /* Light text color for tags */
+  }
+
+  /* 8. Links */
+  .profile-links a {
+      color: #90b8f8; /* A light blue that stands out on dark mode */
+  }
+
+  /* 9. Friend Button (Disabled State) */
+  .friend-btn:disabled {
+      background-color: #505050; /* Darker disabled button color */
+      color: #b0b3b8; /* Lighter text color */
+  }
+  
+  /* Ensure default paragraphs within profile details are visible */
+  .profile-details p {
+      color: #e4e6eb;
+  }
+}
