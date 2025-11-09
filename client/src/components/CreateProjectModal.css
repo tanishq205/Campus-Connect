@@ -69,12 +69,20 @@
   font-size: 14px;
   font-family: inherit;
   background-color: #fafafa;
+  color: #262626;
+  outline: none;
+}
+
+.modal-form input::placeholder,
+.modal-form textarea::placeholder {
+  color: #8e8e8e;
 }
 
 .modal-form input:focus,
 .modal-form textarea:focus {
   border-color: #0095f6;
   background-color: white;
+  color: #262626;
 }
 
 .modal-form textarea {
