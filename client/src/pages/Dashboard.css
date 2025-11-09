@@ -21,22 +21,23 @@
   align-items: center;
   margin-bottom: 40px;
   padding: 32px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card-bg);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--card-border);
 }
 
 .dashboard-header h1 {
   font-size: 36px;
   font-weight: 800;
-  background: var(--primary-gradient);
+  background: var(--blue-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -1px;
+  color: var(--text-primary);
 }
 
 .create-project-btn {
@@ -95,7 +96,7 @@
 .dashboard-section h2 {
   font-size: 28px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   margin-bottom: 24px;
   padding-left: 8px;
   position: relative;
@@ -123,18 +124,18 @@
 .empty-state {
   text-align: center;
   padding: 80px 20px;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   border-radius: 20px;
-  border: 2px dashed rgba(102, 126, 234, 0.3);
-  color: #64748b;
+  border: 2px dashed rgba(59, 130, 246, 0.3);
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
 .loading {
   text-align: center;
   padding: 80px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 18px;
   display: flex;
   flex-direction: column;
@@ -146,8 +147,8 @@
   content: '';
   width: 50px;
   height: 50px;
-  border: 4px solid rgba(102, 126, 234, 0.2);
-  border-top-color: #667eea;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

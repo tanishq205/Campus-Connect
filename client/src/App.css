@@ -27,7 +27,7 @@
 
 @media (max-width: 1024px) {
   .app-content {
-    margin-left: 0;
+    margin-left: 240px;
     padding: 24px;
   }
 }
@@ -41,6 +41,13 @@
   .app-content {
     margin-left: 0;
     padding: 16px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-content {
+    padding: 12px;
   }
 }
 
