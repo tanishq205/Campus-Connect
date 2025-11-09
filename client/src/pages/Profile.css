@@ -48,6 +48,7 @@
   font-size: 28px;
   font-weight: 300;
   color: #262626;
+  color: white;
 }
 
 .edit-profile-btn {
@@ -72,6 +73,7 @@
   display: flex;
   gap: 30px;
   margin-bottom: 20px;
+  color: rgb(249, 233, 233);
 }
 
 .stat {
@@ -99,6 +101,7 @@
   font-weight: 600;
   color: #262626;
   margin-bottom: 8px;
+  color:wheat;
 }
 
 .profile-bio {
@@ -106,6 +109,7 @@
   color: #262626;
   line-height: 1.5;
   margin-top: 12px;
+  color: wheat;
 }
 
 .profile-actions {

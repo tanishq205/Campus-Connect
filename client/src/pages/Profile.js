@@ -110,14 +110,14 @@ const Profile = () => {
           {profileData.profilePicture ? (
             <img src={profileData.profilePicture} alt={profileData.name} className="profile-avatar" />
           ) : (
-            <div className="profile-avatar-placeholder" style="color:white">
+            <div className="profile-avatar-placeholder">
               {profileData.name?.charAt(0).toUpperCase() || 'U'}
             </div>
           )}
         </div>
 
         <div className="profile-info">
-          <div className="profile-name-section" style="color:white">
+          <div className="profile-name-section">
             <h1>{profileData.name}</h1>
             {isOwnProfile && (
               <button className="edit-profile-btn" onClick={() => setShowEditModal(true)}>
@@ -126,7 +126,7 @@ const Profile = () => {
             )}
           </div>
 
-          <div className="profile-stats" style="color:white">
+          <div className="profile-stats">
             <div className="stat">
               <span className="stat-value">{userProjects.length}</span>
               <span className="stat-label">Projects</span>
