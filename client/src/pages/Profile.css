@@ -322,3 +322,25 @@
       color: #e4e6eb;
   }
 }
+
+/* --- Dark Theme Overrides --- */
+@media (prefers-color-scheme: dark) {
+  /* ... (other dark mode fixes) ... */
+
+  /* The Fix for Skills and Interests headers */
+  .profile-skills h3,
+  .profile-interests h3 {
+      color: #e4e6eb; /* Ensure these headers are light-colored */
+  }
+  
+  /* Ensure the tab text is also bright */
+  .tab {
+      color: #b0b3b8;
+  }
+  
+  .tab.active {
+      color: #e4e6eb; 
+  }
+
+  /* ... (other dark mode fixes) ... */
+}
