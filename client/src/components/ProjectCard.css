@@ -142,7 +142,8 @@
 
 .project-description {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  opacity: 0.85;
   line-height: 1.5;
   margin-bottom: 12px;
 }
