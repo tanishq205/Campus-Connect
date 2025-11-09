@@ -308,3 +308,111 @@
   }
 }
 
+/* --- Dark Theme Overrides for Users.css --- */
+@media (prefers-color-scheme: dark) {
+  /* 1. Main Background and Text Colors */
+  .users-page {
+      /* Set main text color to light */
+      color: #e4e6eb; 
+  }
+
+  /* 2. Header and Headings */
+  .users-header h1 {
+      /* "Discover People" title */
+      color: #e4e6eb; 
+  }
+
+  /* 3. Tabs and Borders */
+  .users-tabs {
+      border-bottom: 1px solid #3a3a3a; /* Darker border */
+  }
+
+  .users-tabs .tab {
+      /* Inactive tab text (e.g., "Friend Requests" when Discover is active) */
+      color: #b0b3b8; 
+  }
+
+  .users-tabs .tab:hover {
+      /* Hover state text color */
+      color: #e4e6eb;
+  }
+
+  .users-tabs .tab.active {
+      /* Active tab text (e.g., "Discover" when active) */
+      color: #e4e6eb; 
+      border-bottom-color: #e4e6eb;
+  }
+
+  /* 4. Search Bar */
+  .users-search input {
+      background-color: #3a3a3a; /* Dark background */
+      border: 1px solid #505050; /* Darker border */
+      color: #e4e6eb; /* Light text color for input */
+  }
+  
+  .users-search input::placeholder {
+      color: #b0b3b8; /* Light placeholder text */
+  }
+
+  .users-search input:focus {
+      background-color: #3a3a3a; /* Maintain dark background on focus */
+      border-color: #90b8f8; /* Light blue focus border */
+  }
+  
+  .users-search .search-icon {
+      color: #b0b3b8; /* Light icon color */
+  }
+
+  /* 5. User Cards (Discover Tab) */
+  .user-card {
+      background-color: #262626; /* Dark background for cards */
+      border: 1px solid #3a3a3a;
+      box-shadow: none; /* Remove light theme shadow */
+  }
+  
+  .user-card:hover {
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05); /* Subtle dark mode shadow */
+  }
+
+  .user-info h3 {
+      /* User name */
+      color: #e4e6eb; 
+  }
+
+  .user-college,
+  .user-branch {
+      /* College and branch/year text */
+      color: #b0b3b8; 
+  }
+
+  .skill-tag {
+      background-color: #3a3a3a; /* Dark background for tags */
+      color: #e4e6eb; /* Light text color for tags */
+  }
+  
+  /* 6. Friend Request Items (Requests Tab) */
+  .friend-request-item {
+      background-color: #262626; /* Dark background for request item */
+      border: 1px solid #3a3a3a;
+  }
+  
+  .friend-request-item:hover {
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05);
+  }
+  
+  .request-user-info h4 {
+      /* Request sender name */
+      color: #e4e6eb;
+  }
+  
+  .request-user-info p {
+      /* Request sender college */
+      color: #b0b3b8;
+  }
+
+  /* 7. Empty State/Loading Text */
+  .empty-state p,
+  .loading {
+      color: #b0b3b8;
+  }
+}
