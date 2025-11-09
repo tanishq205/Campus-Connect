@@ -27,6 +27,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  gap: 16px;
+  width: 100%;
 }
 
 .navbar-logo h2 {
@@ -198,42 +200,102 @@
 @media (max-width: 768px) {
   .navbar {
     height: 70px;
+    overflow: hidden;
   }
   
   .navbar-container {
-    padding: 0 16px;
+    padding: 0 12px;
+    gap: 8px;
+    overflow: visible;
   }
   
   .navbar-search {
     display: none;
   }
   
-  .navbar-links {
-    gap: 12px;
-  }
-  
-  .nav-link {
-    font-size: 20px;
-    padding: 6px;
-  }
-  
-  .nav-signout {
-    padding: 8px 16px;
-    font-size: 13px;
+  .navbar-logo {
+    flex-shrink: 0;
   }
   
   .navbar-logo h2 {
-    font-size: 20px;
+    font-size: 18px;
+    white-space: nowrap;
   }
-}
-
-@media (max-width: 480px) {
+  
   .navbar-links {
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    max-width: calc(100vw - 140px);
+    padding-right: 4px;
+  }
+  
+  .navbar-links::-webkit-scrollbar {
+    display: none;
   }
   
   .nav-link {
     font-size: 18px;
+    padding: 6px 8px;
+    min-width: 36px;
+    flex-shrink: 0;
+  }
+  
+  .nav-signout {
+    padding: 6px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    height: 65px;
+  }
+  
+  .navbar-container {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  
+  .navbar-logo h2 {
+    font-size: 16px;
+  }
+  
+  .navbar-links {
+    gap: 4px;
+    max-width: calc(100vw - 120px);
+  }
+  
+  .nav-link {
+    font-size: 16px;
+    padding: 5px 6px;
+    min-width: 32px;
+  }
+  
+  /* Hide some less critical icons on very small screens */
+  .nav-link:nth-child(2), /* Explore */
+  .nav-link:nth-child(3) { /* Events */
+    display: none;
+  }
+  
+  .nav-signout {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  
+  .notification-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    top: -4px;
+    right: -4px;
+    border-width: 2px;
   }
 }
 

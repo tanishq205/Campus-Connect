@@ -6,6 +6,13 @@
   animation: slideDown 0.3s ease-out;
 }
 
+@media (max-width: 768px) {
+  .email-verification-banner {
+    top: 70px;
+    margin-bottom: 16px;
+  }
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -18,21 +25,21 @@
 }
 
 .banner-content {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border: 2px solid #f59e0b;
+  background: rgba(30, 58, 138, 0.2);
+  border: 2px solid rgba(59, 130, 246, 0.4);
   border-radius: 16px;
   padding: 20px 24px;
   display: flex;
   align-items: center;
   gap: 20px;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+  box-shadow: var(--shadow-md), 0 4px 16px rgba(30, 58, 138, 0.3);
   backdrop-filter: blur(10px);
 }
 
 .banner-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: var(--primary-gradient);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -40,7 +47,7 @@
   color: white;
   font-size: 24px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  box-shadow: var(--shadow-blue);
 }
 
 .banner-text {
@@ -50,14 +57,14 @@
 .banner-text h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #92400e;
+  color: var(--text-primary);
   margin-bottom: 6px;
   letter-spacing: -0.3px;
 }
 
 .banner-text p {
   font-size: 14px;
-  color: #78350f;
+  color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
 }
@@ -74,7 +81,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: var(--primary-gradient);
   color: white;
   border: none;
   border-radius: 10px;
@@ -82,12 +89,13 @@
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  box-shadow: var(--shadow-blue);
 }
 
 .resend-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  box-shadow: var(--shadow-lg), 0 4px 12px rgba(30, 58, 138, 0.5);
+  background: var(--blue-gradient);
 }
 
 .resend-btn:disabled {
@@ -106,10 +114,10 @@
 .dismiss-btn {
   width: 36px;
   height: 36px;
-  background: rgba(255, 255, 255, 0.3);
-  border: 2px solid rgba(245, 158, 11, 0.3);
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px solid rgba(59, 130, 246, 0.3);
   border-radius: 10px;
-  color: #92400e;
+  color: var(--text-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -119,8 +127,8 @@
 }
 
 .dismiss-btn:hover {
-  background: rgba(255, 255, 255, 0.5);
-  border-color: #f59e0b;
+  background: rgba(59, 130, 246, 0.25);
+  border-color: #3b82f6;
   transform: rotate(90deg);
 }
 
