@@ -114,7 +114,7 @@ const Navbar = () => {
           <Link to="/chat" className="nav-link" style={{ position: 'relative' }}>
             <FiMessageCircle />
             {unreadMessageCount > 0 && (
-              <span className="notification-badge">{unreadMessageCount > 99 ? '99+' : unreadMessageCount}</span>
+              <span className="message-indicator"></span>
             )}
           </Link>
           <Link to={`/profile/${userData?._id}`} className="nav-link">

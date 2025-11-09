@@ -681,9 +681,7 @@ const Chat = () => {
                             <p>{friend.college}</p>
                           </div>
                           {unreadCount > 0 && (
-                            <div className="unread-badge">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </div>
+                            <div className="unread-indicator"></div>
                           )}
                         </div>
                       );
@@ -717,9 +715,7 @@ const Chat = () => {
                             <p>{memberCount} {memberCount === 1 ? 'member' : 'members'}</p>
                           </div>
                           {unreadCount > 0 && (
-                            <div className="unread-badge">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </div>
+                            <div className="unread-indicator"></div>
                           )}
                         </div>
                       );
