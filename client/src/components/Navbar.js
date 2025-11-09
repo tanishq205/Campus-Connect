@@ -10,6 +10,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [friendRequestCount, setFriendRequestCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -30,10 +31,27 @@ const Navbar = () => {
       };
       window.addEventListener('friendRequestUpdated', handleFriendRequestUpdate);
       
+      // Listen for unread message count updates
+      const handleUnreadMessageUpdate = (event) => {
+        setUnreadMessageCount(event.detail.totalUnread || 0);
+      };
+      window.addEventListener('unreadMessageCountUpdated', handleUnreadMessageUpdate);
+      
+      // Load initial unread count from localStorage
+      const savedCount = localStorage.getItem('unreadMessageCount');
+      if (savedCount) {
+        setUnreadMessageCount(parseInt(savedCount, 10) || 0);
+      }
+      
       return () => {
         clearInterval(interval);
         window.removeEventListener('friendRequestUpdated', handleFriendRequestUpdate);
+        window.removeEventListener('unreadMessageCountUpdated', handleUnreadMessageUpdate);
       };
+    } else {
+      // Reset count when user logs out
+      setUnreadMessageCount(0);
+      localStorage.removeItem('unreadMessageCount');
     }
   }, [userData]);
 
@@ -93,8 +111,11 @@ const Navbar = () => {
               <span className="notification-badge">{friendRequestCount}</span>
             )}
           </Link>
-          <Link to="/chat" className="nav-link">
+          <Link to="/chat" className="nav-link" style={{ position: 'relative' }}>
             <FiMessageCircle />
+            {unreadMessageCount > 0 && (
+              <span className="notification-badge">{unreadMessageCount > 99 ? '99+' : unreadMessageCount}</span>
+            )}
           </Link>
           <Link to={`/profile/${userData?._id}`} className="nav-link">
             <FiUser />

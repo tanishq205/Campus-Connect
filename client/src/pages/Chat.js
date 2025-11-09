@@ -25,6 +25,25 @@ const Chat = () => {
   const channelRef = useRef(null);
   const lastReadMessageRef = useRef({}); // Track last read message ID per chat
 
+  // Calculate total unread count and broadcast it to Navbar
+  useEffect(() => {
+    const totalUnread = Object.values(unreadCounts).reduce((sum, count) => {
+      // Ensure count is a valid number
+      const numCount = typeof count === 'number' ? count : parseInt(count, 10) || 0;
+      return sum + numCount;
+    }, 0);
+    
+    console.log('📊 Total unread messages:', totalUnread, 'from counts:', unreadCounts);
+    
+    // Broadcast unread count update to Navbar
+    window.dispatchEvent(new CustomEvent('unreadMessageCountUpdated', { 
+      detail: { totalUnread } 
+    }));
+    
+    // Also store in localStorage for persistence across page refreshes
+    localStorage.setItem('unreadMessageCount', totalUnread.toString());
+  }, [unreadCounts]);
+
   // Connect user to Stream Chat when component mounts
   useEffect(() => {
     if (!userData?._id || !currentUser) return;
@@ -112,10 +131,13 @@ const Chat = () => {
             const isCurrentChat = selectedFriend?._id === friend._id;
             
             if (messageUserId !== userData._id.toString() && !isCurrentChat) {
-              setUnreadCounts(prev => ({
-                ...prev,
-                [friend._id]: (prev[friend._id] || 0) + 1
-              }));
+              setUnreadCounts(prev => {
+                const newCounts = {
+                  ...prev,
+                  [friend._id]: (prev[friend._id] || 0) + 1
+                };
+                return newCounts;
+              });
             }
           });
         } catch (err) {
@@ -136,10 +158,13 @@ const Chat = () => {
             const isCurrentChat = selectedProject?._id === project._id;
             
             if (messageUserId !== userData._id.toString() && !isCurrentChat) {
-              setUnreadCounts(prev => ({
-                ...prev,
-                [`project-${project._id}`]: (prev[`project-${project._id}`] || 0) + 1
-              }));
+              setUnreadCounts(prev => {
+                const newCounts = {
+                  ...prev,
+                  [`project-${project._id}`]: (prev[`project-${project._id}`] || 0) + 1
+                };
+                return newCounts;
+              });
             }
           });
         } catch (err) {
@@ -405,19 +430,23 @@ const Chat = () => {
               const friendIds = channelId.replace('friend-', '').split('-');
               const otherFriendId = friendIds.find(id => id !== userData._id.toString());
               if (otherFriendId) {
-                setUnreadCounts(prev => ({
-                  ...prev,
-                  [otherFriendId]: (prev[otherFriendId] || 0) + 1
-                }));
-                console.log(`📬 Unread count for friend ${otherFriendId}:`, (unreadCounts[otherFriendId] || 0) + 1);
+                setUnreadCounts(prev => {
+                  const newCounts = {
+                    ...prev,
+                    [otherFriendId]: (prev[otherFriendId] || 0) + 1
+                  };
+                  return newCounts;
+                });
               }
             } else if (channelId.startsWith('project-')) {
               const projectIdFromChannel = channelId.replace('project-', '');
-              setUnreadCounts(prev => ({
-                ...prev,
-                [`project-${projectIdFromChannel}`]: (prev[`project-${projectIdFromChannel}`] || 0) + 1
-              }));
-              console.log(`📬 Unread count for project ${projectIdFromChannel}:`, (unreadCounts[`project-${projectIdFromChannel}`] || 0) + 1);
+              setUnreadCounts(prev => {
+                const newCounts = {
+                  ...prev,
+                  [`project-${projectIdFromChannel}`]: (prev[`project-${projectIdFromChannel}`] || 0) + 1
+                };
+                return newCounts;
+              });
             }
           }
           
