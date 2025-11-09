@@ -48,6 +48,7 @@ const CreateProjectModal = ({ onClose, onSuccess }) => {
         tags: formData.tags.split(',').map(t => t.trim()).filter(t => t),
         requiredSkills: formData.requiredSkills.split(',').map(s => s.trim()).filter(s => s),
         creator: userData._id,
+        userId: userData._id, // Required by email verification middleware
         status: 'open',
       };
 
